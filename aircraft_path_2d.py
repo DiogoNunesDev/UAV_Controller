@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import math
-import numpy as np
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000  
@@ -14,21 +13,32 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c 
 
 def plot_path_with_target_and_quadrants(filename="best_individual_log.txt"):
-
     latitudes = []
     longitudes = []
     altitudes = []
-    target_lat, target_lon = None, None
+    target_latitudes = []
+    target_longitudes = []
+    target_altitudes = []
     
     with open(filename, "r") as file:
         lines = file.readlines()
 
-        target_line = lines[1].strip().split(", ")
-        target_lat = float(target_line[0].split(": ")[1])
-        target_lon = float(target_line[1].split(": ")[1])
-
-        for line in lines[3:]:  
-            if line.strip():  
+        for line in lines:
+            if line.startswith("Target Latitude"): 
+                target_line = line.strip().split(", ")
+                if len(target_line) == 3:
+                    try:
+                        target_lat = float(target_line[0].split(": ")[1])
+                        target_lon = float(target_line[1].split(": ")[1])
+                        target_alt = float(target_line[2].split(": ")[1].replace("m", ""))
+                        target_latitudes.append(target_lat)
+                        target_longitudes.append(target_lon)
+                        target_altitudes.append(target_alt)
+                    except (IndexError, ValueError) as e:
+                        print(f"Error processing target line: {line}. Error: {e}")
+            elif line.startswith("Step"): 
+                continue 
+            elif line.strip(): 
                 parts = line.strip().split("\t")
                 if len(parts) == 4:
                     _, lat, lon, alt = parts
@@ -36,57 +46,44 @@ def plot_path_with_target_and_quadrants(filename="best_individual_log.txt"):
                     longitudes.append(float(lon))
                     altitudes.append(float(alt))
 
-    start_lat, start_lon = latitudes[0], longitudes[0]
-    end_lat, end_lon = latitudes[-1], longitudes[-1]
-    dist_start_target = haversine(start_lat, start_lon, target_lat, target_lon)
-    dist_start_end = haversine(start_lat, start_lon, end_lat, end_lon)
-    dist_target_end = haversine(target_lat, target_lon, end_lat, end_lon)
+    if not target_latitudes or not target_longitudes:
+        print("No target data found in the file.")
+        return
 
-    print(f"Distance from Start to Target: {dist_start_target:.2f} meters")
-    print(f"Distance from Start to End: {dist_start_end:.2f} meters")
-    print(f"Distance from Target to End: {dist_target_end:.2f} meters")
+    segment_size = 50
+    num_segments = (len(latitudes) + segment_size - 1) // segment_size 
 
+    # Manually define colors for each segment
+    colors = ['#3ba9f5', '#8405f7', '#0ffa0f']  # Blue, Purple, Dark Green
 
-    steps = list(range(1, len(latitudes) + 1))
+    plt.figure(figsize=(16, 12))
 
-    plt.figure(figsize=(16, 8))
+    for i in range(min(3, num_segments)):  
+        start_idx = i * segment_size
+        end_idx = min((i + 1) * segment_size, len(latitudes))
 
-    # Subplot 1: Trajectory Path
-    plt.subplot(1, 2, 1)
-    plt.plot(longitudes, latitudes, marker='o', color="blue", label="Path")
-    plt.scatter(start_lon, start_lat, color="green", s=100, label="Start Point")
-    plt.scatter(target_lon, target_lat, color="purple", s=100, label="Specified Target Point")
-    plt.scatter(end_lon, end_lat, color="red", s=100, label="End Point")
+        # Plot path with specific color for each segment
+        plt.subplot(3, 2, 2*i+1)
+        plt.plot(longitudes[start_idx:end_idx], latitudes[start_idx:end_idx], marker='o', label=f"Path Target Point {i+1}", color=colors[i])
+        plt.scatter(longitudes[start_idx], latitudes[start_idx], color="green", s=100, label="Start Point")
+        plt.scatter(target_longitudes[i], target_latitudes[i], color="purple", s=100, label=f"Target Point {i+1}")
+        plt.scatter(longitudes[end_idx-1], latitudes[end_idx-1], color="red", s=100, label="End Point")
+        plt.xlabel("Longitude")
+        plt.ylabel("Latitude")
+        plt.title(f"Path to Target Point {i+1}")
+        plt.legend()
+        plt.grid(True)
 
-    min_lon, max_lon = min(longitudes), max(longitudes)
-    min_lat, max_lat = min(latitudes), max(latitudes)
-    mid_lon = (max_lon + min_lon) / 2
-    mid_lat = (max_lat + min_lat) / 2
-
-    plt.axhline(y=mid_lat, color='black', linestyle='--', linewidth=0.5)  
-    plt.axvline(x=mid_lon, color='black', linestyle='--', linewidth=0.5)  
-
-    plt.text(mid_lon, max_lat, 'North', ha='center', va='bottom', fontsize=12, color='black')
-    plt.text(mid_lon, min_lat, 'South', ha='center', va='top', fontsize=12, color='black')
-    plt.text(max_lon, mid_lat, 'East', ha='left', va='center', fontsize=12, color='black')
-    plt.text(min_lon, mid_lat, 'West', ha='right', va='center', fontsize=12, color='black')
-
-    plt.xlabel("Longitude")
-    plt.ylabel("Latitude")
-    plt.title("Trajectory Path with Specified Target and Quadrants")
-    plt.legend()
-    plt.grid(True)
-
-    # Subplot 2: Altitude across Steps
-    plt.subplot(1, 2, 2)
-    plt.plot(steps, altitudes, marker='o', color="purple")
-    plt.xlabel("Step")
-    plt.ylabel("Altitude (m)")
-    plt.title("Altitude of Aircraft across Steps")
-    plt.grid(True)
+        # Plot altitude with specific color for each segment
+        plt.subplot(3, 2, 2*i+2)
+        steps = list(range(start_idx + 1, end_idx + 1))  
+        plt.plot(steps, altitudes[start_idx:end_idx], marker='o', label=f"Altitude Variation {i+1}", color=colors[i])
+        plt.xlabel("Step")
+        plt.ylabel("Altitude (m)")
+        plt.title(f"Altitude Variation {i+1}")
+        plt.grid(True)
 
     plt.tight_layout()
     plt.show()
 
-# Run the function to plot the path and altitude graph
 plot_path_with_target_and_quadrants("best_individual_log.txt")

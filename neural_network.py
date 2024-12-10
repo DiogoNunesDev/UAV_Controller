@@ -20,7 +20,7 @@ class NeuralNetwork:
     model = Sequential()
     model.add(Dense(128, input_shape=(self.input_dim,), activation='relu'))
     model.add(Dense(32, activation='relu'))
-    model.add(Dense(self.output_dim, activation='tanh'))  # Limita as saídas entre -1 e 1
+    model.add(Dense(self.output_dim, activation='tanh')) 
     model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
     return model
   
