@@ -10,6 +10,8 @@ import gc
 from tensorflow.keras import backend as K
 import tensorflow as tf
 import math
+from pymavlink.dialects.v20 import common as mavlink
+
 #from sklearn.preprocessing import MinMaxScaler
 
 
@@ -161,7 +163,7 @@ def evaluate_individuals(individuals, input_dim, output_dim, target_points):
         current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
         cumulative_altitude_dist += (abs(300 - current_alt))
         crashed = current_alt <= ALTITUDE_THRESHOLD
-        individual.ardupilot_log[run_index].append([obs[0], obs[1], obs[2], current_lat, current_lon, current_alt])
+        individual.ardupilot_log[run_index].append([math.degrees(obs[0]), math.degrees(obs[1]), obs[2], current_lat, current_lon, current_alt])
         individual.log.append(f"{step_count}\t{current_lat:.6f}\t{current_lon:.6f}\t{current_alt}\t{yaw}")
       distance_to_target = info.get('distance_to_target', float('inf'))
       results.append((distance_to_target, crashed, step_count, cumulative_altitude_dist, individual))
@@ -467,7 +469,7 @@ class Genetic_Algorithm():
         save_fitness_log(self.bestIndividual, i)
         save_pry(self.bestIndividual)
         save_avg_fitness_log(i, self.population)
-        observations_to_log(self.bestIndividual.ardupilot_log, 1, "mission_planner_log.log")
+        observations_to_tlog(self.bestIndividual.ardupilot_log, 0.5, "mission_planner_log.tlog")
               
       print(f'Generation {i}, Best Fitness: {self.bestIndividual.fitness}')
         
@@ -523,26 +525,54 @@ def save_pry(bestIndividual): #PITCH ROLL YAW
     for step_log in bestIndividual.pry:
       log_file.write(step_log + "\n")
 
-def observations_to_log(observations, timestep_sec, output_file):
-  with open(output_file, 'w') as log_file:
-    # Add FMT messages
-    log_file.write("FMT,128,GPS,BHBBffff,GPS:Timestamp,Lat,Lon,Alt,Spd\n")
-    log_file.write("FMT,129,ATT,BHfff,ATT:Timestamp,Roll,Pitch,Yaw\n")
+def observations_to_tlog(observations, timestep_sec, output_file):
+    # Open the output file in binary write mode
+    with open(output_file, 'wb') as tlog_file:
+        # Initialize MAVLink instance
+        mav = mavlink.MAVLink(tlog_file)
+        mav.srcSystem = 1  # System ID
+        mav.srcComponent = 1  # Component ID
 
-    for step, entry_list in observations.items():
-      for values in entry_list:
-        current_roll = values[0]
-        current_pitch = values[1]
-        current_yaw = values[2]
-        latitude = values[3]
-        longitude = values[4]
-        altitude = values[5]
+        # Iterate through observations
+        for step, entry_list in observations.items():
+            for values in entry_list:
+                # Extract values
+                current_roll = values[0]
+                current_pitch = values[1]
+                current_yaw = values[2]
+                latitude = values[3] * 1e7  # Convert to MAVLink format (degrees * 1e7)
+                longitude = values[4] * 1e7  # Convert to MAVLink format (degrees * 1e7)
+                altitude = int(values[5] * 1000)  # Convert to millimeters
+                timestamp = int((step - 1) * timestep_sec * 1000)  # Milliseconds
 
-        timestamp = int((step - 1) * timestep_sec * 1000)
+                # GPS_RAW_INT message
+                gps_msg = mavlink.MAVLink_gps_raw_int_message(
+                    time_usec=timestamp * 1000,  # Convert to microseconds
+                    fix_type=3,  # 3 = 3D Fix
+                    lat=int(latitude),
+                    lon=int(longitude),
+                    alt=int(altitude),
+                    eph=100,  # GPS Horizontal dilution (cm)
+                    epv=100,  # GPS Vertical dilution (cm)
+                    vel=0,  # Ground speed (cm/s)
+                    cog=0,  # Course over ground (centidegrees)
+                    satellites_visible=10  # Number of satellites
+                )
+                mav.send(gps_msg)
 
-        log_file.write(f"GPS,{timestamp},{latitude},{longitude},{altitude},0\n")
-        log_file.write(f"ATT,{timestamp},{current_roll},{current_pitch},{current_yaw}\n")
+                # ATTITUDE message
+                attitude_msg = mavlink.MAVLink_attitude_message(
+                    time_boot_ms=timestamp,  # Milliseconds since boot
+                    roll=current_roll,  # Roll in radians
+                    pitch=current_pitch,  # Pitch in radians
+                    yaw=current_yaw,  # Yaw in radians
+                    rollspeed=0,  # Roll rate (rad/s)
+                    pitchspeed=0,  # Pitch rate (rad/s)
+                    yawspeed=0   # Yaw rate (rad/s)
+                )
+                mav.send(attitude_msg)
 
+        print(f"TLog file successfully created: {os.path.abspath(output_file)}")
 
 
             
