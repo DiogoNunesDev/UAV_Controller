@@ -55,6 +55,7 @@ class Individual:
     self.genome = genome
     self.fitness = None
     self.log = []
+    self.ardupilot_log = {1:[],2:[], 3:[]}
     self.pry = []
     
     
@@ -125,13 +126,15 @@ def normalize_input_vector(input_vector):
             normalized_vector_min_max.append(feature)
     
     return normalized_vector_min_max
-  
+
+
+
 def evaluate_individuals(individuals, input_dim, output_dim, target_points):
   """Evaluates a batch of individuals in the provided environment instance."""
   
   for target_point in target_points:
     env = create_env(target_point)
-    
+    run_index = 1
     results = []
     for individual in individuals:
       model = NeuralNetwork(input_dim, output_dim).genome_to_model(individual.genome)
@@ -139,10 +142,9 @@ def evaluate_individuals(individuals, input_dim, output_dim, target_points):
       done, step_count, total_time, crashed = False, 0, 0, False
       cumulative_altitude_dist = 0
       individual.log.append(f"Target Latitude: {env.task.target_point[0]:.6f}, Target Longitude: {env.task.target_point[1]:.6f}, Target Altitude: 300m")
-      individual.log.append("Step\tLatitude\tLongitude\tAltitude")
+      individual.log.append("Step\tLatitude\tLongitude\tAltitude\tHeading")
       
       while not done and step_count < EPISODE_TIME_S * STEP_FREQUENCY_HZ:
-        
         normalized_input_vector = normalize_input_vector(obs)
         
         input_vector = np.array(normalized_input_vector).reshape(1, -1)
@@ -159,11 +161,12 @@ def evaluate_individuals(individuals, input_dim, output_dim, target_points):
         current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
         cumulative_altitude_dist += (abs(300 - current_alt))
         crashed = current_alt <= ALTITUDE_THRESHOLD
-        
-        individual.log.append(f"{step_count}\t{current_lat:.6f}\t{current_lon:.6f}\t{current_alt}")
-
+        individual.ardupilot_log[run_index].append([obs[0], obs[1], obs[2], current_lat, current_lon, current_alt])
+        individual.log.append(f"{step_count}\t{current_lat:.6f}\t{current_lon:.6f}\t{current_alt}\t{yaw}")
       distance_to_target = info.get('distance_to_target', float('inf'))
       results.append((distance_to_target, crashed, step_count, cumulative_altitude_dist, individual))
+
+    run_index+=1
 
   print("All individuals were evaluated!")
   env.close()
@@ -422,19 +425,27 @@ class Genetic_Algorithm():
   
   def crossover(self, new_population, parent1, parent2):
     """Creates new genomes based on previous genomes of the previous generation"""
-    crossOverPoint = random.randint(0, len(parent1))
-    child1 = np.concatenate((parent1[:crossOverPoint], parent2[crossOverPoint:]))
-    child2 = np.concatenate((parent2[:crossOverPoint], parent1[crossOverPoint:]))
+    #crossOverPoint = random.randint(0, len(parent1))
+    #child1 = np.concatenate((parent1[:crossOverPoint], parent2[crossOverPoint:]))
+    #child2 = np.concatenate((parent2[:crossOverPoint], parent1[crossOverPoint:]))
 
-    new_population.append(Individual(child1))
-    new_population.append(Individual(child2))
+    new_population.append(Individual(parent1))
+    new_population.append(Individual(parent2))
     
   def mutate(self, genome):
     """Mutates each new genome made by the crossover feature"""
     for i in range(0, len(genome)):
       mutation_flag = random.random()
       if mutation_flag < self.mutationProb:
-        genome[i] = random.uniform(-1, 1)
+        
+        factor = random.uniform(-0.1, 0.1)
+        genome[i] += factor 
+        if genome[i] > 1:
+          genome[i] = 1
+        if genome[i] < -1:
+          genome[i] = -1
+
+
         
   def evolve(self):
 
@@ -455,7 +466,8 @@ class Genetic_Algorithm():
         save_logs(self.bestIndividual)
         save_fitness_log(self.bestIndividual, i)
         save_pry(self.bestIndividual)
-
+        save_avg_fitness_log(i, self.population)
+        observations_to_log(self.bestIndividual.ardupilot_log, 1, "mission_planner_log.log")
               
       print(f'Generation {i}, Best Fitness: {self.bestIndividual.fitness}')
         
@@ -496,13 +508,57 @@ def save_fitness_log(bestIndividual, gen):
   with open("fitness_evolution.txt", "a") as log_file:
     log_file.write(f"Generation {gen}: {bestIndividual.fitness}\n")
 
+def save_avg_fitness_log(gen, population):
+  avg = 0
+  for individual in population:
+    avg += individual.fitness
+
+  avg /= len(population)
+
+  with open("fitness_avg_evolution.txt", "a") as log_file:
+    log_file.write(f"Generation {gen}: {avg}\n")
+
 def save_pry(bestIndividual): #PITCH ROLL YAW
   with open("pitch_roll_yaw_evolution.txt", "w") as log_file:
     for step_log in bestIndividual.pry:
       log_file.write(step_log + "\n")
+
+def observations_to_log(observations, timestep_sec, output_file):
+  """
+  Convert observations to a Mission Planner-compatible log file.
+  
+  :param observations: List of observation arrays with fields:
+                        [current_roll, current_pitch, current_yaw, throttle,
+                        latitude, longitude, altitude, distance].
+  :param timestep_sec: Time interval between observations in seconds.
+  :param output_file: Path to save the log file.
+  """
+  with open(output_file, 'w') as log_file:
+    # Write log header
+    log_file.write("# Mission Planner-compatible log\n")
+    log_file.write("# Fields: MessageType, Timestamp, Lat, Lon, Altitude, Roll, Pitch, Yaw\n")
+
+    for step, entry_list in observations.items():
+      for values in entry_list:
+        # Extract data from the current entry
+        current_roll = values[0]
+        current_pitch = values[1]
+        current_yaw = values[2]
+        latitude = values[3]
+        longitude = values[4]
+        altitude = values[5]
+
+        # Calculate timestamp (in milliseconds)
+        timestamp = int((step - 1) * timestep_sec * 1000)
+
+        # Write GPS and ATT data to the log
+        log_file.write(f"GPS,{timestamp},{latitude},{longitude},{altitude}\n")
+        log_file.write(f"ATT,{timestamp},{current_roll},{current_pitch},{current_yaw}\n")
+
+
             
 
 if __name__ == "__main__":
-  GA = Genetic_Algorithm(8, 4, 100, 1500, 0.1, 5, 0.15)
+  GA = Genetic_Algorithm(8, 4, 24, 1500, 0.1, 5, 0.15)
   GA.evolve()
   
