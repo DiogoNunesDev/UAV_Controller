@@ -524,23 +524,13 @@ def save_pry(bestIndividual): #PITCH ROLL YAW
       log_file.write(step_log + "\n")
 
 def observations_to_log(observations, timestep_sec, output_file):
-  """
-  Convert observations to a Mission Planner-compatible log file.
-  
-  :param observations: List of observation arrays with fields:
-                        [current_roll, current_pitch, current_yaw, throttle,
-                        latitude, longitude, altitude, distance].
-  :param timestep_sec: Time interval between observations in seconds.
-  :param output_file: Path to save the log file.
-  """
   with open(output_file, 'w') as log_file:
-    # Write log header
-    log_file.write("# Mission Planner-compatible log\n")
-    log_file.write("# Fields: MessageType, Timestamp, Lat, Lon, Altitude, Roll, Pitch, Yaw\n")
+    # Add FMT messages
+    log_file.write("FMT,128,GPS,BHBBffff,GPS:Timestamp,Lat,Lon,Alt,Spd\n")
+    log_file.write("FMT,129,ATT,BHfff,ATT:Timestamp,Roll,Pitch,Yaw\n")
 
     for step, entry_list in observations.items():
       for values in entry_list:
-        # Extract data from the current entry
         current_roll = values[0]
         current_pitch = values[1]
         current_yaw = values[2]
@@ -548,12 +538,11 @@ def observations_to_log(observations, timestep_sec, output_file):
         longitude = values[4]
         altitude = values[5]
 
-        # Calculate timestamp (in milliseconds)
         timestamp = int((step - 1) * timestep_sec * 1000)
 
-        # Write GPS and ATT data to the log
-        log_file.write(f"GPS,{timestamp},{latitude},{longitude},{altitude}\n")
+        log_file.write(f"GPS,{timestamp},{latitude},{longitude},{altitude},0\n")
         log_file.write(f"ATT,{timestamp},{current_roll},{current_pitch},{current_yaw}\n")
+
 
 
             
