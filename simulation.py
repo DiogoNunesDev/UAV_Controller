@@ -141,7 +141,7 @@ def evaluate_individuals(individuals, input_dim, output_dim, target_points):
     for individual in individuals:
       model = NeuralNetwork(input_dim, output_dim).genome_to_model(individual.genome)
       obs = env.reset()
-      input_obs = obs[0:9]
+      input_obs = obs[0:8]
       done, step_count, total_time, crashed = False, 0, 0, False
       cumulative_altitude_dist = 0
       individual.log.append(f"Target Latitude: {env.task.target_point[0]:.6f}, Target Longitude: {env.task.target_point[1]:.6f}, Target Altitude: 300m")
@@ -149,7 +149,6 @@ def evaluate_individuals(individuals, input_dim, output_dim, target_points):
       
       while not done and step_count < EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         normalized_input_vector = normalize_input_vector(input_obs)
-        
         input_vector = np.array(normalized_input_vector).reshape(1, -1)
         individual.pry.append(f"Pitch (deg): {math.degrees(obs[0])}, Roll (deg): {math.degrees(obs[1])}, Yaw (deg): {obs[2]}")
         action = model.predict(input_vector, verbose=0)[0]
@@ -159,13 +158,15 @@ def evaluate_individuals(individuals, input_dim, output_dim, target_points):
 
         obs, reward, done, info = env.step(action)
         step_count += 1
-        current_lat = obs[10]
-        current_lon = obs[11]
+        current_lat = obs[9]
+        current_lon = obs[10]
         current_alt = obs[4]
         cumulative_altitude_dist += (abs(300 - current_alt))
         crashed = current_alt <= ALTITUDE_THRESHOLD
         individual.ardupilot_log[run_index].append(obs)
         individual.log.append(f"{step_count}\t{current_lat:.6f}\t{current_lon:.6f}\t{current_alt}\t{yaw}")
+        input_obs = obs[0:8]
+ 
       distance_to_target = info.get('distance_to_target', float('inf'))
       results.append((distance_to_target, crashed, step_count, cumulative_altitude_dist, individual))
 
@@ -559,21 +560,20 @@ def observations_to_tlog(observations, timestep_sec, output_file):
                 current_yaw = values[2]
                 throttle = values[3]  # Not directly used in messages, but can be logged
                 current_altitude = int(values[4] * 1000)  # Altitude in millimeters
-                _ = values[5]
+                _ = values[5]  # Placeholder for custom logic
                 _ = values[6]  # Placeholder for custom logic
                 _ = values[7]  # Placeholder for custom logic
-                _ = values[8]  # Placeholder for custom logic
                 current_altitude_msl = int(values[8] * 1000)  # MSL altitude in millimeters
-                current_lat = int(values[10] * 1e7)  # Latitude in 1E-7 degrees
-                current_lon = int(values[11] * 1e7)  # Longitude in 1E-7 degrees
-                velocity_north = int(values[12])  # North velocity in cm/s
-                velocity_east = int(values[13])  # East velocity in cm/s
-                velocity_down = int(values[14])  # Down velocity in cm/s
-                ground_speed = int(values[15])  # Ground speed in cm/s
-                heading = int(values[16])  # Heading in centi-degrees
-                roll_speed = values[17]
-                pitch_speed = values[18]
-                yaw_speed = values[19]
+                current_lat = int(values[9] * 1e7)  # Latitude in 1E-7 degrees
+                current_lon = int(values[10] * 1e7)  # Longitude in 1E-7 degrees
+                velocity_north = int(values[11])  # North velocity in cm/s
+                velocity_east = int(values[12])  # East velocity in cm/s
+                velocity_down = int(values[13])  # Down velocity in cm/s
+                ground_speed = int(values[14])  # Ground speed in cm/s
+                heading = int(values[15])  # Heading in centi-degrees
+                roll_speed = values[16]
+                pitch_speed = values[17]
+                yaw_speed = values[18]
 
                 # GPS_RAW_INT message
                 gps_msg = mavlink.MAVLink_gps_raw_int_message(

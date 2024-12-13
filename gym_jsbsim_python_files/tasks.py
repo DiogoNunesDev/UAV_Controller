@@ -514,7 +514,6 @@ class NavigationTask(FlightTask):
         current_yaw = math.radians(sim[prp.heading_deg])  # Yaw converted to radians
         throttle = sim[prp.throttle_cmd] * 100  # Throttle as percentage (normalized to 0-100)
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048  # Altitude (AGL) from feet to meters
-        altitude_dist = (abs(300 - current_altitude))
         current_altitude_msl = sim[prp.altitude_sl_ft] * 0.3048  # Altitude (MSL) from feet to meters
 
         # GPS Position
@@ -528,7 +527,7 @@ class NavigationTask(FlightTask):
         ground_speed = math.sqrt(velocity_north**2 + velocity_east**2)  # Ground speed in cm/s
 
         # Heading
-        heading = sim[prp.heading_deg] * 100  # Heading in centi-degrees (0-36000)
+        heading = current_yaw * 100  # Heading in centi-degrees (0-36000)
 
         # Angular Velocities
         roll_speed = sim[prp.p_radps]  # Roll rate in rad/s
@@ -536,7 +535,7 @@ class NavigationTask(FlightTask):
         yaw_speed = sim[prp.r_radps]  # Yaw rate in rad/s
         
         distance = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], self.target_alt)
-        yaw_angle = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
+        yaw_angle = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_yaw)
         pitch_angle = self.calculate_pitch_angle(current_altitude)
         
         observation = np.array([
@@ -545,7 +544,6 @@ class NavigationTask(FlightTask):
             current_yaw,
             throttle,
             current_altitude,
-            altitude_dist,
             distance,
             yaw_angle,
             pitch_angle,
