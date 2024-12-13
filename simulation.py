@@ -141,13 +141,14 @@ def evaluate_individuals(individuals, input_dim, output_dim, target_points):
     for individual in individuals:
       model = NeuralNetwork(input_dim, output_dim).genome_to_model(individual.genome)
       obs = env.reset()
+      input_obs = obs[0:9]
       done, step_count, total_time, crashed = False, 0, 0, False
       cumulative_altitude_dist = 0
       individual.log.append(f"Target Latitude: {env.task.target_point[0]:.6f}, Target Longitude: {env.task.target_point[1]:.6f}, Target Altitude: 300m")
       individual.log.append("Step\tLatitude\tLongitude\tAltitude\tHeading")
       
       while not done and step_count < EPISODE_TIME_S * STEP_FREQUENCY_HZ:
-        normalized_input_vector = normalize_input_vector(obs)
+        normalized_input_vector = normalize_input_vector(input_obs)
         
         input_vector = np.array(normalized_input_vector).reshape(1, -1)
         individual.pry.append(f"Pitch (deg): {math.degrees(obs[0])}, Roll (deg): {math.degrees(obs[1])}, Yaw (deg): {obs[2]}")
@@ -158,12 +159,12 @@ def evaluate_individuals(individuals, input_dim, output_dim, target_points):
 
         obs, reward, done, info = env.step(action)
         step_count += 1
-        current_lat = env.sim[prp.lat_geod_deg]
-        current_lon = env.sim[prp.lng_geoc_deg]
-        current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
+        current_lat = obs[10]
+        current_lon = obs[11]
+        current_alt = obs[4]
         cumulative_altitude_dist += (abs(300 - current_alt))
         crashed = current_alt <= ALTITUDE_THRESHOLD
-        individual.ardupilot_log[run_index].append([math.degrees(obs[0]), math.degrees(obs[1]), obs[2], current_lat, current_lon, current_alt])
+        individual.ardupilot_log[run_index].append(obs)
         individual.log.append(f"{step_count}\t{current_lat:.6f}\t{current_lon:.6f}\t{current_alt}\t{yaw}")
       distance_to_target = info.get('distance_to_target', float('inf'))
       results.append((distance_to_target, crashed, step_count, cumulative_altitude_dist, individual))
@@ -530,32 +531,61 @@ def save_pry(bestIndividual): #PITCH ROLL YAW
       log_file.write(step_log + "\n")
 
 def observations_to_tlog(observations, timestep_sec, output_file):
-    with open(output_file, 'wb') as tlog_file:
-        mav = mavlink.MAVLink(tlog_file)
-        mav.srcSystem = 1  
-        mav.srcComponent = 1 
+    """
+    Converts an episode's observations into a .tlog file.
 
-        step = 1
-        for values in observations:
+    Parameters:
+        observations (dict): A dictionary containing observations for the entire episode.
+        timestep_sec (float): Time interval between observations in seconds.
+        output_file (str): Path to save the .tlog file.
+
+    Returns:
+        None
+    """
+    with open(output_file, 'wb') as tlog_file:
+        # Initialize MAVLink instance
+        mav = mavlink.MAVLink(tlog_file)
+        mav.srcSystem = 1  # System ID
+        mav.srcComponent = 1  # Component ID
+
+        # Iterate through observations
+        for step, entry_list in observations.items():
+            timestamp = int((step - 1) * timestep_sec * 1000)  # Milliseconds
+
+            for values in entry_list:
+                # Extract values from observation
                 current_roll = values[0]
                 current_pitch = values[1]
                 current_yaw = values[2]
-                latitude = values[3] * 1e7  # Convert to MAVLink format (degrees * 1e7)
-                longitude = values[4] * 1e7  # Convert to MAVLink format (degrees * 1e7)
-                altitude = int(values[5] * 1000)  # Convert to millimeters
-                timestamp = int((step - 1) * timestep_sec * 1000)  # Milliseconds
+                throttle = values[3]  # Not directly used in messages, but can be logged
+                current_altitude = int(values[4] * 1000)  # Altitude in millimeters
+                _ = values[5]
+                _ = values[6]  # Placeholder for custom logic
+                _ = values[7]  # Placeholder for custom logic
+                _ = values[8]  # Placeholder for custom logic
+                current_altitude_msl = int(values[8] * 1000)  # MSL altitude in millimeters
+                current_lat = int(values[10] * 1e7)  # Latitude in 1E-7 degrees
+                current_lon = int(values[11] * 1e7)  # Longitude in 1E-7 degrees
+                velocity_north = int(values[12])  # North velocity in cm/s
+                velocity_east = int(values[13])  # East velocity in cm/s
+                velocity_down = int(values[14])  # Down velocity in cm/s
+                ground_speed = int(values[15])  # Ground speed in cm/s
+                heading = int(values[16])  # Heading in centi-degrees
+                roll_speed = values[17]
+                pitch_speed = values[18]
+                yaw_speed = values[19]
 
                 # GPS_RAW_INT message
                 gps_msg = mavlink.MAVLink_gps_raw_int_message(
                     time_usec=timestamp * 1000,  # Convert to microseconds
                     fix_type=3,  # 3 = 3D Fix
-                    lat=int(latitude),
-                    lon=int(longitude),
-                    alt=int(altitude),
-                    eph=100,  # GPS Horizontal dilution (cm)
-                    epv=100,  # GPS Vertical dilution (cm)
-                    vel=0,  # Ground speed (cm/s)
-                    cog=0,  # Course over ground (centidegrees)
+                    lat=current_lat,
+                    lon=current_lon,
+                    alt=current_altitude_msl,
+                    eph=50,  # Horizontal dilution (cm)
+                    epv=50,  # Vertical dilution (cm)
+                    vel=ground_speed,  # Ground speed (cm/s)
+                    cog=heading,  # Course over ground (centidegrees)
                     satellites_visible=10  # Number of satellites
                 )
                 mav.send(gps_msg)
@@ -566,12 +596,32 @@ def observations_to_tlog(observations, timestep_sec, output_file):
                     roll=current_roll,  # Roll in radians
                     pitch=current_pitch,  # Pitch in radians
                     yaw=current_yaw,  # Yaw in radians
-                    rollspeed=0,  # Roll rate (rad/s)
-                    pitchspeed=0,  # Pitch rate (rad/s)
-                    yawspeed=0   # Yaw rate (rad/s)
+                    rollspeed=roll_speed,  # Roll rate (rad/s)
+                    pitchspeed=pitch_speed,  # Pitch rate (rad/s)
+                    yawspeed=yaw_speed  # Yaw rate (rad/s)
                 )
                 mav.send(attitude_msg)
-                step +=1
+
+                # GLOBAL_POSITION_INT message
+                position_msg = mavlink.MAVLink_global_position_int_message(
+                    time_boot_ms=timestamp,
+                    lat=current_lat,
+                    lon=current_lon,
+                    alt=current_altitude_msl,
+                    relative_alt=current_altitude,
+                    vx=velocity_north,
+                    vy=velocity_east,
+                    vz=velocity_down,
+                    hdg=heading
+                )
+                mav.send(position_msg)
+
+                # SYSTEM_TIME message (Optional for time synchronization)
+                system_time_msg = mavlink.MAVLink_system_time_message(
+                    time_unix_usec=timestamp * 1000,  # Unix time in microseconds
+                    time_boot_ms=timestamp  # Boot time in milliseconds
+                )
+                mav.send(system_time_msg)
 
         print(f"TLog file successfully created: {os.path.abspath(output_file)}")
 
