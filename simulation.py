@@ -395,7 +395,7 @@ class Genetic_Algorithm():
     """ Sets the fitness of the individual"""
     avg_altitude_dist = cumulative_altitude_dist / n_steps
     crash_penalty = -1000 if crashed else 0
-    fitness = (((1 / (distance + 1)) * 1000) / n_steps) * 10 + crash_penalty - avg_altitude_dist
+    fitness = (((1 / (distance + 1)) * 1000) / n_steps) * 100 + crash_penalty - avg_altitude_dist
     #print(f'FITNESS: {fitness} || DISTANCE: {distance} || CRASH: {crash_penalty}')
     indiviual.fitness = fitness
     return fitness
@@ -469,7 +469,11 @@ class Genetic_Algorithm():
         save_fitness_log(self.bestIndividual, i)
         save_pry(self.bestIndividual)
         save_avg_fitness_log(i, self.population)
-        observations_to_tlog(self.bestIndividual.ardupilot_log, 0.5, "mission_planner_log.tlog")
+        output_folder = "log_files"
+        for episode_number, episode_data in self.bestIndividual.ardupilot_log.items():
+          print(f"{episode_data}")
+          output_file = os.path.join(output_folder, f"simulation_{episode_number}.tlog")
+          observations_to_tlog(episode_data, 0.2, output_file)
               
       print(f'Generation {i}, Best Fitness: {self.bestIndividual.fitness}')
         
@@ -526,17 +530,13 @@ def save_pry(bestIndividual): #PITCH ROLL YAW
       log_file.write(step_log + "\n")
 
 def observations_to_tlog(observations, timestep_sec, output_file):
-    # Open the output file in binary write mode
     with open(output_file, 'wb') as tlog_file:
-        # Initialize MAVLink instance
         mav = mavlink.MAVLink(tlog_file)
-        mav.srcSystem = 1  # System ID
-        mav.srcComponent = 1  # Component ID
+        mav.srcSystem = 1  
+        mav.srcComponent = 1 
 
-        # Iterate through observations
-        for step, entry_list in observations.items():
-            for values in entry_list:
-                # Extract values
+        step = 1
+        for values in observations:
                 current_roll = values[0]
                 current_pitch = values[1]
                 current_yaw = values[2]
@@ -571,13 +571,13 @@ def observations_to_tlog(observations, timestep_sec, output_file):
                     yawspeed=0   # Yaw rate (rad/s)
                 )
                 mav.send(attitude_msg)
+                step +=1
 
         print(f"TLog file successfully created: {os.path.abspath(output_file)}")
-
 
             
 
 if __name__ == "__main__":
-  GA = Genetic_Algorithm(8, 4, 24, 1500, 0.1, 5, 0.15)
+  GA = Genetic_Algorithm(8, 4, 12, 1500, 0.1, 5, 0.15)
   GA.evolve()
   
