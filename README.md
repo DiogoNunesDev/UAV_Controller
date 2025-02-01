@@ -37,7 +37,7 @@ The simulation environment is designed to provide realistic UAV dynamics while a
 
 The project employs **Proximal Policy Optimization (PPO)**, an effective on-policy reinforcement learning method that balances exploration and exploitation.
 
-![Proximal Policy Optimization](https://github.com/DiogoNunesDev/AirplaneController/blob/main/readme/PPO.png)
+![Proximal Policy Optimization](https://github.com/DiogoNunesDev/AirplaneController/blob/main/PPO.png)
 
 ---
 
