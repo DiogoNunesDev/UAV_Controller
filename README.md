@@ -50,8 +50,8 @@ To monitor training and analyze flight behavior, we implemented visualization to
 Examples:
 
 <p align="center">
-  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Static_Aircraft_Path_2D.png" width="45%" />
-  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Aircraft_Path_2D.gif" width="45%" />
+  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Static_Aircraft_Path_2D.png" height="300px" />
+  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Aircraft_Path_2D.gif" height="300px" />
 </p>
 
 ![Altitude Change](https://github.com/DiogoNunesDev/AirplaneController/blob/main/Altitude_Change.png)
