@@ -47,6 +47,12 @@ To monitor training and analyze flight behavior, we implemented visualization to
 - **Flight stability** and **altitude changes**.
 - **Sensor data readings** over time.
 
+Examples:
+
+![Static Aircraft Path 2D](https://github.com/DiogoNunesDev/AirplaneController/blob/main/Aircraft%20Path%202D.png.png)
+
+![Altitude Change](https://github.com/DiogoNunesDev/AirplaneController/blob/main/Altitude%20Change.png)
+
 ---
 
 ## 🚀 Future Directions
