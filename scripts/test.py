@@ -14,21 +14,21 @@ from tensorflow.keras.models import load_model
 
 
 
-STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
-EPISODE_TIME_S = 60  # Total episode duration in seconds
+STEP_FREQUENCY_HZ = 5  
+EPISODE_TIME_S = 60  
 RESET_AFTER_EPISODES = 3
-EARTH_RADIUS = 6371000  # Earth radius in meters
+EARTH_RADIUS = 6371000  
 START_LAT = 37.619
 START_LON = -122.3750
 MIN_MAX_RANGES = {
-  'Pitch': (0, 2 * np.pi),          # Pitch range (degrees)
-  'Roll': (0, 2 * np.pi),         # Roll range (degrees)
-  'Yaw': (0, 360),             # Yaw range (degrees)
-  'Throttle': (0, 1),          # Throttle range
-  'Altitude': (0, 250),      # Example Altitude Distance range (meters)
-  'Distance': (0, 1000),       # Example Distance range (meters)
-  'Yaw Angle': (0, 360),  # Yaw Angle (radians)
-  'Pitch Angle': (-90, 90)# Pitch Angle (radians)
+  'Pitch': (0, 2 * np.pi),        
+  'Roll': (0, 2 * np.pi),         
+  'Yaw': (0, 360),           
+  'Throttle': (0, 1),          
+  'Altitude': (0, 250),     
+  'Distance': (0, 1000),      
+  'Yaw Angle': (0, 360),  
+  'Pitch Angle': (-90, 90)
 }
 
 model_path = "./best_model.h5"
@@ -63,7 +63,6 @@ def calculate_circle_point(lat, lon, radius, angle):
 
 def reset_target_point(start_lat, start_lon, radius = 250):
     
-    # Generates points around the circle at the given radius and selects a random one
     circle_points = [calculate_circle_point(start_lat, start_lon, radius, i * (360 / 15)) for i in range(15)]
     target_point = random.choice(circle_points)
     return target_point

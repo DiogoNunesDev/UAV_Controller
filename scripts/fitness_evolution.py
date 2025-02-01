@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-file_path = 'fitness_evolution.txt'
+file_path = '../txt_files/fitness_evolution.txt'
 
 generations = []
 fitness_values = []

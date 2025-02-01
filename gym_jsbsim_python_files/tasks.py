@@ -504,6 +504,13 @@ class NavigationTask(FlightTask):
         }
         return initial_conditions
 
+    def normalize_yaw(self, yaw):
+        while yaw > math.pi:
+            yaw -= 2 * math.pi
+        while yaw < -math.pi:
+            yaw += 2 * math.pi
+        return yaw
+
     def observe_first_state(self, sim: Simulation) -> np.ndarray:
         """
         Extracts the current observation for the episode.
@@ -512,6 +519,7 @@ class NavigationTask(FlightTask):
         current_roll = sim[prp.roll_rad]  # Roll in radians
         current_pitch = sim[prp.pitch_rad]  # Pitch in radians
         current_yaw = math.radians(sim[prp.heading_deg])  # Yaw converted to radians
+        current_yaw = self.normalize_yaw(current_yaw)  # Normalize to [-π, π]
         throttle = sim[prp.throttle_cmd] * 100  # Throttle as percentage (normalized to 0-100)
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048  # Altitude (AGL) from feet to meters
         current_altitude_msl = sim[prp.altitude_sl_ft] * 0.3048  # Altitude (MSL) from feet to meters
@@ -527,7 +535,7 @@ class NavigationTask(FlightTask):
         ground_speed = math.sqrt(velocity_north**2 + velocity_east**2)  # Ground speed in cm/s
 
         # Heading
-        heading = current_yaw * 100  # Heading in centi-degrees (0-36000)
+        heading = sim[prp.heading_deg] * 100  # Heading in centi-degrees (0-36000)
 
         # Angular Velocities
         roll_speed = sim[prp.p_radps]  # Roll rate in rad/s
@@ -535,8 +543,8 @@ class NavigationTask(FlightTask):
         yaw_speed = sim[prp.r_radps]  # Yaw rate in rad/s
         
         distance = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], self.target_alt)
-        yaw_angle = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_yaw)
-        pitch_angle = self.calculate_pitch_angle(current_altitude)
+        yaw_angle_to_target = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_yaw)
+        pitch_angle_to_target = self.calculate_pitch_angle(current_altitude)
         
         observation = np.array([
             current_roll,
@@ -545,8 +553,22 @@ class NavigationTask(FlightTask):
             throttle,
             current_altitude,
             distance,
-            yaw_angle,
-            pitch_angle,
+            yaw_angle_to_target,
+            pitch_angle_to_target
+        ], dtype=np.float32)
+        
+        
+        """
+            observation = np.array([
+            current_roll,
+            current_pitch,
+            current_yaw,
+            throttle,
+            current_altitude,
+            distance,
+            yaw_angle_to_target,
+            pitch_angle_to_target,
+            
             current_altitude_msl,
             current_lat,
             current_lon,
@@ -558,7 +580,9 @@ class NavigationTask(FlightTask):
             roll_speed,
             pitch_speed,
             yaw_speed,
+            
         ], dtype=np.float32)
+        """
         
         return observation
 
@@ -575,7 +599,6 @@ class NavigationTask(FlightTask):
 
         vertical_distance = abs(alt2 - alt1)
         return math.sqrt(horizontal_distance ** 2 + vertical_distance ** 2)
-
 
     def calculate_yaw_angle(self, lat1: float, lon1: float, heading: float) -> float:
         lat2, lon2 = self.target_lat, self.target_lon
@@ -625,7 +648,6 @@ class NavigationTask(FlightTask):
         self.target_point = random.choice(circle_points)
         self.target_lat, self.target_lon = self.target_point[0], self.target_point[1]
 
-
     def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float) -> bool:
         """Determines if the episode should end based on distance to target or altitude."""
         if distance_to_target < 5.0 or current_altitude < 100.0:
@@ -656,7 +678,34 @@ class NavigationTask(FlightTask):
         )
 
     def get_state_space(self):
+        # Define correct lower and upper bounds for observations
+        lows = np.array([
+            -np.pi,   # Roll
+            -np.pi/2, # Pitch
+            -np.pi,   # Yaw (normalized to -π to π)
+            0.0,      # Throttle (0 to 1)
+            0.0,      # Altitude (meters)
+            0.0,      # Distance (meters)
+            -180,     # Yaw angle (degrees)
+            -90       # Pitch angle (degrees)
+        ], dtype=np.float32)
+
+        highs = np.array([
+            np.pi,    # Roll
+            np.pi/2,  # Pitch
+            np.pi,    # Yaw
+            1.0,      # Throttle
+            3000,     # Altitude 
+            1000,     # Distance
+            180,      # Yaw angle
+            90        # Pitch angle
+        ], dtype=np.float32)
+        return spaces.Box(low=lows, high=highs, dtype=np.float32)
+
+"""
+    def get_state_space(self):
         lows = np.array([self.state_bounds[var][0] for var in self.state_variables], dtype=np.float32)
         highs = np.array([self.state_bounds[var][1] for var in self.state_variables], dtype=np.float32)
         return spaces.Box(low=lows, high=highs, dtype=np.float32)
     
+"""

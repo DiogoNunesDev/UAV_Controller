@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-file_path = 'pitch_roll_yaw_evolution.txt'
+file_path = '../txt_files/pitch_roll_yaw_evolution.txt'
 
 pitch_values = []
 roll_values = []
