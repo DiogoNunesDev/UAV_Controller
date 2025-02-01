@@ -49,9 +49,9 @@ To monitor training and analyze flight behavior, we implemented visualization to
 
 Examples:
 
-![Static Aircraft Path 2D](https://github.com/DiogoNunesDev/AirplaneController/blob/main/Aircraft%20Path%202D.png.png)
+![Static Aircraft Path 2D](https://github.com/DiogoNunesDev/AirplaneController/blob/main/Aircraft_Path_2D.png)
 
-![Altitude Change](https://github.com/DiogoNunesDev/AirplaneController/blob/main/Altitude%20Change.png)
+![Altitude Change](https://github.com/DiogoNunesDev/AirplaneController/blob/main/Altitude_Change.png)
 
 ---
 
