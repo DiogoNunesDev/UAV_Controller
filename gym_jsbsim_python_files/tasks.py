@@ -434,6 +434,8 @@ class NavigationTask(FlightTask):
         self.steps_left = BoundedProperty('info/steps_left', 'steps remaining in episode', 0, episode_steps)
         self.aircraft = aircraft
         self.target_point = target_point
+        self.cumulative_altitude_dist = 0
+        self.n_steps = 0
         
         self.state_variables = (
             prp.roll_rad,             # Roll angle in radians
@@ -466,17 +468,27 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
+    def setReward(self, distance):
+        """ Sets the reward of the individual"""
+        avg_altitude_dist = self.cumulative_altitude_dist / self.n_steps
+        crash_penalty = -1000 if crashed else 0
+        reward = (((1 / (distance + 1)) * 1000) / self.n_steps) * 250 + crash_penalty - avg_altitude_dist
+        return reward
+    
+    
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple[NamedTuple, float, bool, Dict]:
         for prop, command in zip(self.action_variables, action):
             sim[prop] = command
         for _ in range(sim_steps):
             sim.run()
 
-        observation = self.observe_first_state(sim)
         
+        observation = self.observe_first_state(sim)
+        self.n_steps += 1
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048
+        crashed = current_altitude <= 100
         distance_to_target = observation[5]
-        reward = -distance_to_target * 0.1
+        reward = self.setReward(distance_to_target, crashed)
         done = self._is_terminal(sim, distance_to_target, current_altitude)
 
         if done:
@@ -625,12 +637,12 @@ class NavigationTask(FlightTask):
         elif yaw_angle < -180:
             yaw_angle += 360
         
-        return yaw_angle
+        return math.radians(yaw_angle)
 
     def calculate_pitch_angle(self, alt1: float) -> float:
         alt2 = self.target_alt
         distance_horizontal = self.calculate_distance(self.target_lat, self.target_lon, alt1)
-        return math.degrees(math.atan2(alt2 - alt1, distance_horizontal))
+        return math.atan2(alt2 - alt1, distance_horizontal)
 
     def calculate_circle_point(self, lat, lon, radius, angle):
         EARTH_RADIUS = 6371000
@@ -695,10 +707,10 @@ class NavigationTask(FlightTask):
             np.pi/2,  # Pitch
             np.pi,    # Yaw
             1.0,      # Throttle
-            3000,     # Altitude 
+            900,     # Altitude (set max realistically)
             1000,     # Distance
-            180,      # Yaw angle
-            90        # Pitch angle
+            np.pi,      # Yaw angle
+            np.pi/2        # Pitch angle
         ], dtype=np.float32)
         return spaces.Box(low=lows, high=highs, dtype=np.float32)
 
