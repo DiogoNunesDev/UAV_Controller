@@ -87,36 +87,48 @@ def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=3):
   
   return target_points
 
+
+def save_logs(log):
+  with open("../txt_files/ppo_log.txt", "w") as log_file:
+    
+    log_file.write(f"Best Fitness: {0}\n")
+    log_file.write(f"Target Latitude: {log[0].split(',')[0].split(':')[1].strip()}, ")
+    log_file.write(f"Target Longitude: {log[0].split(',')[1].split(':')[1].strip()}, ")
+    log_file.write(f"Target Altitude: 300m\n")  
+            
+    for step_log in log[1:]:  
+      log_file.write(step_log + "\n")  
+
 if __name__ == "__main__":
   
-  target_points = create_target_points(START_LAT, START_LON, n=3)
-  target_point = target_points[1]
-  print(f"Training on Target Point: {target_point}")
+    target_points = create_target_points(START_LAT, START_LON, n=3)
+    target_point = target_points[1]
+    print(f"Training on Target Point: {target_point}")
 
-  env = create_env(target_point)
+    env = create_env(target_point)
 
-  vec_env = DummyVecEnv([lambda: env])
+    model = PPO.load("./ppo_navigation_single_target")
 
-  model = PPO(
-      "MlpPolicy",
-      vec_env,
-      learning_rate=3e-4,
-      n_steps=2048,
-      batch_size=64,
-      gae_lambda=0.95,
-      gamma=0.99,
-      verbose=1,
-  )
+    obs = env.reset()  
+    log = []
+    log.append(f"Target Latitude: {env.task.target_point[0]:.6f}, Target Longitude: {env.task.target_point[1]:.6f}, Target Altitude: 300m")
+    log.append("Step\tLatitude\tLongitude\tAltitude\tHeading")
+    done = False
+    step_count = 0
 
-  print("Starting PPO training...")
-  model.learn(total_timesteps=TOTAL_TIMESTEPS)
-  print("Training completed!")
+    while not done and step_count < EPISODE_TIME_S * STEP_FREQUENCY_HZ:
+      action, _states = model.predict(obs, deterministic=True)
+      obs, reward, done, info = env.step(action)
+      step_count += 1
 
-  model.save("ppo_navigation_single_target")
-  print("Model saved as 'ppo_navigation_single_target'.")
+      current_lat = env.sim[prp.lat_geod_deg]
+      current_lon = env.sim[prp.lng_geoc_deg]
+      current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
+      heading = env.sim[prp.heading_deg]
+      log.append(f"{step_count}\t{current_lat:.6f}\t{current_lon:.6f}\t{current_alt}\t{heading}")
 
-  vec_env.close()
-  gc.collect()
+    save_logs(log)
+    gc.collect()
 
-  print("Training completed for all target points!")
+    print("Training completed for all target points!")
   

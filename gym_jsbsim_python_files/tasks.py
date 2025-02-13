@@ -468,11 +468,10 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
-    def setReward(self, distance):
+    def setReward(self, distance, crashed, alt_dist):
         """ Sets the reward of the individual"""
-        avg_altitude_dist = self.cumulative_altitude_dist / self.n_steps
-        crash_penalty = -1000 if crashed else 0
-        reward = (((1 / (distance + 1)) * 1000) / self.n_steps) * 250 + crash_penalty - avg_altitude_dist
+        crash_penalty = -100 if crashed else 0
+        reward = 0.6*(1 / (distance + 1)) + crash_penalty - 0.4 * (alt_dist/300)
         return reward
     
     
@@ -486,9 +485,10 @@ class NavigationTask(FlightTask):
         observation = self.observe_first_state(sim)
         self.n_steps += 1
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048
+        alt_dist = abs(300 - current_altitude)
         crashed = current_altitude <= 100
         distance_to_target = observation[5]
-        reward = self.setReward(distance_to_target, crashed)
+        reward = self.setReward(distance_to_target, crashed, alt_dist)
         done = self._is_terminal(sim, distance_to_target, current_altitude)
 
         if done:
@@ -662,6 +662,7 @@ class NavigationTask(FlightTask):
 
     def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float) -> bool:
         """Determines if the episode should end based on distance to target or altitude."""
+
         if distance_to_target < 5.0 or current_altitude < 100.0:
             return True
         
@@ -671,7 +672,7 @@ class NavigationTask(FlightTask):
 
     def _reward_terminal_override(self, reward: float, sim: Simulation, distance_to_target: float, current_altitude: float) -> float:
         """Overrides the reward if terminal conditions are met, adding a bonus for reaching target or penalty for crashing."""
-        if distance_to_target < 10.0:
+        if distance_to_target < 5.0:
             reward += 100  
         elif current_altitude < 3.0:
             reward -= 100  
@@ -690,7 +691,6 @@ class NavigationTask(FlightTask):
         )
 
     def get_state_space(self):
-        # Define correct lower and upper bounds for observations
         lows = np.array([
             -np.pi,   # Roll
             -np.pi/2, # Pitch
@@ -707,7 +707,7 @@ class NavigationTask(FlightTask):
             np.pi/2,  # Pitch
             np.pi,    # Yaw
             1.0,      # Throttle
-            900,     # Altitude (set max realistically)
+            900,     # Altitude 
             1000,     # Distance
             np.pi,      # Yaw angle
             np.pi/2        # Pitch angle

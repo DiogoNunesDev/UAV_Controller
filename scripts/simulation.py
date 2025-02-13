@@ -450,7 +450,6 @@ def observations_to_tlog(observations, timestep_sec, output_file):
         None
     """
     with open(output_file, 'wb') as tlog_file:
-      # Initialize MAVLink instance
       mav = mavlink.MAVLink(tlog_file)
       mav.srcSystem = 1  # System ID
       mav.srcComponent = 1  # Component ID
@@ -460,13 +459,10 @@ def observations_to_tlog(observations, timestep_sec, output_file):
       
       step=1
       for values in observations:
-        # Validate the observation
         #validate_data(values)
 
-        # Increment time
         current_time_ms += int(timestep_sec * 1000)  # Add timestep in milliseconds
 
-        # Extract values from observation
         current_roll = values[0]  # Roll in radians
         current_pitch = values[1]  # Pitch in radians
         current_yaw = values[2]  # Yaw in radians
@@ -540,96 +536,6 @@ def observations_to_tlog(observations, timestep_sec, output_file):
         
       print(f"TLog file successfully created: {os.path.abspath(output_file)}")
 
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import numpy as np
-
-def draw_airplane(ax, x, y, yaw, size=1.0):
-    """
-    Draws an airplane symbol at (x, y) with orientation given by yaw (in degrees).
-
-    Parameters:
-        ax: Matplotlib Axes object.
-        x, y: Position of the airplane.
-        yaw: Orientation in degrees (0 is pointing right, 90 is up).
-        size: Scaling factor for the airplane size.
-    """
-    # Define airplane shape (triangle for simplicity)
-    airplane = np.array([
-        [0, -0.5],  # Tail
-        [1, 0],     # Nose
-        [0, 0.5],   # Tail
-        [0, -0.5]   # Close the triangle
-    ]) * size
-
-    # Rotate airplane by yaw angle
-    rotation_matrix = np.array([
-        [np.cos(np.radians(yaw)), -np.sin(np.radians(yaw))],
-        [np.sin(np.radians(yaw)), np.cos(np.radians(yaw))]
-    ])
-    rotated_airplane = airplane @ rotation_matrix.T
-
-    # Translate airplane to (x, y)
-    translated_airplane = rotated_airplane + np.array([x, y])
-
-    # Draw airplane
-    airplane_patch = patches.Polygon(translated_airplane, closed=True, color='blue')
-    ax.add_patch(airplane_patch)
-
-def plot_trajectory(observations, initial_lat, initial_lon):
-    """
-    Plots the trajectory of an airplane on a 2D graph with orientation.
-
-    Parameters:
-        observations: List of tuples containing (latitude, longitude, yaw).
-        initial_lat: Initial latitude.
-        initial_lon: Initial longitude.
-    """
-    fig, ax = plt.subplots(figsize=(10, 10))
-
-    # Set up the plot
-    ax.set_xlim(-20, 20)
-    ax.set_ylim(-20, 20)
-    ax.axhline(0, color='black', linewidth=0.5)
-    ax.axvline(0, color='black', linewidth=0.5)
-    ax.set_title("2D Airplane Trajectory")
-    ax.set_xlabel("East/West (meters)")
-    ax.set_ylabel("North/South (meters)")
-    ax.grid(True)
-
-    positions = []
-    for obs in observations:
-        lat_diff = (obs[0] - initial_lat) * 111320  
-        lon_diff = (obs[1] - initial_lon) * 111320 * np.cos(np.radians(initial_lat))
-        positions.append((lon_diff, lat_diff, obs[2]))
-
-    for i, (x, y, yaw) in enumerate(positions):
-        ax.clear()
-        ax.set_xlim(-20, 20)
-        ax.set_ylim(-20, 20)
-        ax.axhline(0, color='black', linewidth=0.5)
-        ax.axvline(0, color='black', linewidth=0.5)
-        ax.grid(True)
-
-        # Plot trajectory
-        if i > 0:
-            traj_x, traj_y = zip(*[(p[0], p[1]) for p in positions[:i+1]])
-            ax.plot(traj_x, traj_y, color='gray', linestyle='dashed')
-
-        # Draw the airplane
-        draw_airplane(ax, x, y, yaw, size=1.5)
-
-        # Add text for current position
-        ax.text(-18, 18, f"Step: {i+1}", fontsize=12, bbox=dict(facecolor='white', alpha=0.5))
-        ax.text(-18, 16, f"Position: ({x:.2f}, {y:.2f})", fontsize=12, bbox=dict(facecolor='white', alpha=0.5))
-        ax.text(-18, 14, f"Yaw: {yaw:.2f}°", fontsize=12, bbox=dict(facecolor='white', alpha=0.5))
-
-        plt.pause(0.5)
-
-    plt.show()
-
-
-          
 
 if __name__ == "__main__":
   GA = Genetic_Algorithm(8, 4, 100, 1500, 0.1, 5, 0.15)
