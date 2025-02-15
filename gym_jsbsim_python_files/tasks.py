@@ -423,6 +423,9 @@ class TurnHeadingControlTask(HeadingControlTask):
                               self.target_track_deg.max)
         
 class NavigationTask(FlightTask):
+    
+    CIRCLE_RADIUS = 500
+    
     def __init__(self, shaping, step_frequency_hz: float, aircraft: Aircraft, target_point: Tuple[float, float], episode_time_s: float = 60):
 
         # Initialize target coordinates and other variables
@@ -452,7 +455,7 @@ class NavigationTask(FlightTask):
             prp.pitch_rad: (-np.pi / 2, np.pi / 2),
             prp.heading_deg: (0, 360),
             prp.throttle_cmd: (0, 1),
-            prp.altitude_agl_ft: (0, 1000),  
+            prp.altitude_agl_ft: (0, 3000),  
             prp.lat_geod_deg: (-90, 90),
             prp.lng_geoc_deg: (-180, 180)
         }
@@ -473,7 +476,6 @@ class NavigationTask(FlightTask):
         crash_penalty = -100 if crashed else 0
         reward = 0.6*(1 / (distance + 1)) + crash_penalty - 0.4 * (alt_dist/300)
         return reward
-    
     
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple[NamedTuple, float, bool, Dict]:
         for prop, command in zip(self.action_variables, action):
@@ -532,7 +534,7 @@ class NavigationTask(FlightTask):
         current_pitch = sim[prp.pitch_rad]  # Pitch in radians
         current_yaw = math.radians(sim[prp.heading_deg])  # Yaw converted to radians
         current_yaw = self.normalize_yaw(current_yaw)  # Normalize to [-π, π]
-        throttle = sim[prp.throttle_cmd] * 100  # Throttle as percentage (normalized to 0-100)
+        throttle = sim[prp.throttle_cmd] # [0, 1]
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048  # Altitude (AGL) from feet to meters
         current_altitude_msl = sim[prp.altitude_sl_ft] * 0.3048  # Altitude (MSL) from feet to meters
 
@@ -569,6 +571,11 @@ class NavigationTask(FlightTask):
             pitch_angle_to_target
         ], dtype=np.float32)
         
+        for i, (low, high) in enumerate(zip(self.get_state_space().low, self.get_state_space().high)):
+            if not (low <= observation[i] <= high):
+                print(f"🚨 Observation {i}: {observation[i]} is out of range! Expected: [{low}, {high}]")
+        
+        assert self.get_state_space().contains(observation), f"Observation out of bounds: {observation}"
         
         """
             observation = np.array([
@@ -644,20 +651,53 @@ class NavigationTask(FlightTask):
         distance_horizontal = self.calculate_distance(self.target_lat, self.target_lon, alt1)
         return math.atan2(alt2 - alt1, distance_horizontal)
 
-    def calculate_circle_point(self, lat, lon, radius, angle):
-        EARTH_RADIUS = 6371000
+    def calculate_circle_point(lat, lon, radius, angle):
+        """
+        This function calculates a point on the surface of the Earth
+        """
         lat_rad, lon_rad, angle_rad = map(math.radians, (lat, lon, angle))
 
         new_lat_rad = math.asin(math.sin(lat_rad) * math.cos(radius / EARTH_RADIUS) +
                                 math.cos(lat_rad) * math.sin(radius / EARTH_RADIUS) * math.cos(angle_rad))
         new_lon_rad = lon_rad + math.atan2(math.sin(angle_rad) * math.sin(radius / EARTH_RADIUS) * math.cos(lat_rad),
-                                           math.cos(radius / EARTH_RADIUS) - math.sin(lat_rad) * math.sin(new_lat_rad))
+                                            math.cos(radius / EARTH_RADIUS) - math.sin(lat_rad) * math.sin(new_lat_rad))
         return math.degrees(new_lat_rad), math.degrees(new_lon_rad)
-    
-    def reset_target_point(self, start_lat: float, start_lon: float, radius: float = 250):
-        # Generate points around the circle at the given radius
-        circle_points = [self.calculate_circle_point(start_lat, start_lon, radius, i * (360 / 15)) for i in range(15)]
-        self.target_point = random.choice(circle_points)
+        
+    def generate_equally_spaced_target_points(n=5, radius=CIRCLE_RADIUS):
+        """
+        Generates `n` equally spaced points on a circle.
+        """
+        points = []
+        random_offset = np.random.uniform(0, 2 * np.pi) 
+        angle_increment = 2 * np.pi / n 
+        
+        for i in range(n):
+            angle = random_offset + i * angle_increment
+            x = radius * np.cos(angle)
+            y = radius * np.sin(angle)
+            points.append((x, y))  
+
+        return points
+
+    def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=5):
+        """
+        Creates `n` equally spaced target points around a circle centered at the
+        provided (start_lat, start_lon), using a given radius in meters.
+        """
+        circle_points = generate_equally_spaced_target_points(n, radius)
+        
+        target_points = []
+        for point in circle_points:
+            x, y = point
+            angle = np.degrees(np.arctan2(y, x))
+            target_lat, target_lon = calculate_circle_point(start_lat, start_lon, radius, angle)
+            target_points.append((target_lat, target_lon))
+        
+        return target_points
+
+    def reset_target_point(self):
+        target_points = self.create_target_points(self, start_lat=37.6190, start_lon=-122.3750)
+        self.target_point = random.choice(target_points)
         self.target_lat, self.target_lon = self.target_point[0], self.target_point[1]
 
     def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float) -> bool:
@@ -698,8 +738,8 @@ class NavigationTask(FlightTask):
             0.0,      # Throttle (0 to 1)
             0.0,      # Altitude (meters)
             0.0,      # Distance (meters)
-            -180,     # Yaw angle (degrees)
-            -90       # Pitch angle (degrees)
+            -np.pi,     # Yaw angle (degrees)
+            -np.pi/2       # Pitch angle (degrees)
         ], dtype=np.float32)
 
         highs = np.array([
@@ -707,8 +747,8 @@ class NavigationTask(FlightTask):
             np.pi/2,  # Pitch
             np.pi,    # Yaw
             1.0,      # Throttle
-            900,     # Altitude 
-            1000,     # Distance
+            1000,     # Altitude (meters)
+            2000,     # Distance
             np.pi,      # Yaw angle
             np.pi/2        # Pitch angle
         ], dtype=np.float32)

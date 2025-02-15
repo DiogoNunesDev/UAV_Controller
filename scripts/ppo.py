@@ -1,3 +1,4 @@
+import random
 import numpy as np
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.tasks import NavigationTask  
@@ -12,25 +13,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
 EPISODE_TIME_S = 10  # Total episode duration in seconds
 EARTH_RADIUS = 6371000  # Earth radius in meters
-CIRCLE_RADIUS = 250     # Circle radius in meters
+CIRCLE_RADIUS = 500     # Circle radius in meters
 NUM_POINTS = 15         # Number of points on the circumference
 TOLERANCE_DISTANCE = 10 # Tolerance distance in meters
 ALTITUDE_THRESHOLD = 100  # Altitude threshold to detect crash or failure
 START_LAT = 37.619
 START_LON = -122.3750
-TOTAL_TIMESTEPS = 100000
-
-MIN_MAX_RANGES = {
-  'Pitch': (0, 2 * np.pi),    #Pitch range (degrees)
-  'Roll': (0, 2 * np.pi),     #Roll range (degrees)
-  'Yaw': (0, 360),            #Yaw range (degrees)
-  'Throttle': (0, 1),         #Throttle range
-  'Altitude': (0, 250),       #Altitude Distance range (meters)
-  'Distance': (0, 1000),      #Distance range (meters)
-  'Yaw Angle': (-180, 180),   #Yaw Angle (radians)
-  'Pitch Angle': (-90, 90)    #Pitch Angle (radians)
-}
-
+TOTAL_TIMESTEPS = 100000000
 
 def create_env(target_point):
   """Sets up the GymJSBSim environment for the navigation task."""
@@ -89,8 +78,8 @@ def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=3):
 
 if __name__ == "__main__":
   
-  target_points = create_target_points(START_LAT, START_LON, n=3)
-  target_point = target_points[1]
+  target_points = create_target_points(START_LAT, START_LON, n=50)
+  target_point = random.choice(target_points)
   print(f"Training on Target Point: {target_point}")
 
   env = create_env(target_point)
@@ -101,8 +90,8 @@ if __name__ == "__main__":
       "MlpPolicy",
       vec_env,
       learning_rate=3e-4,
-      n_steps=2048,
-      batch_size=64,
+      n_steps=4096,
+      batch_size=128,
       gae_lambda=0.95,
       gamma=0.99,
       verbose=1,

@@ -129,7 +129,6 @@ def plot_trajectory(data, target, initial_lat, initial_lon, episode_num):
     ax.legend()
     plt.show()
 
-    # Plot altitude variation
     plt.figure(figsize=(10, 5))
     plt.plot([point['altitude'] for point in data], marker='o', color='orange', label="Altitude")
     plt.title(f"Episode {episode_num}: Altitude Variation")
@@ -157,5 +156,4 @@ def main(file_path):
             plot_trajectory(data, target, initial_lat, initial_lon, episode_num)
 
 
-# Main Execution
 main("../txt_files/ppo_log.txt")

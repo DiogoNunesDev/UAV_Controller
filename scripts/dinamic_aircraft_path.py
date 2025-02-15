@@ -97,49 +97,42 @@ def draw_airplane(ax, x, y, yaw, size=1.0):
 
 def plot_moving_trajectory(data, target, initial_lat, initial_lon, episode_num):
     """
-    Animates the trajectory for a single episode with moving airplane and target.
+    Animates the trajectory for a single episode with a panning map that follows the aircraft.
     """
     fig, ax = plt.subplots(figsize=(10, 10))
-    ax.set_xlim(-300, 300)
-    ax.set_ylim(-300, 300)
-    ax.axhline(0, color='black', linewidth=0.5)
-    ax.axvline(0, color='black', linewidth=0.5)
-    ax.set_title(f"Episode {episode_num}: Airplane Trajectory with Target")
-    ax.set_xlabel("East/West (meters)")
-    ax.set_ylabel("North/South (meters)")
-    ax.grid(True)
-
+    window_size = 300  # Fixed viewing window in meters
+    
     trajectory_x, trajectory_y = [], []
     target_x, target_y = lat_lon_to_meters(initial_lat, initial_lon, target[0], target[1])
-
+    
     for i, point in enumerate(data):
         x, y = lat_lon_to_meters(initial_lat, initial_lon, point['latitude'], point['longitude'])
         trajectory_x.append(x)
         trajectory_y.append(y)
-
+        
         # Clear and redraw
         ax.clear()
-        ax.set_xlim(-300, 300)
-        ax.set_ylim(-300, 300)
-        ax.axhline(0, color='black', linewidth=0.5)
-        ax.axvline(0, color='black', linewidth=0.5)
+        ax.set_xlim(x - window_size / 2, x + window_size / 2)
+        ax.set_ylim(y - window_size / 2, y + window_size / 2)
         ax.grid(True)
 
         # Plot trajectory
         ax.plot(trajectory_x, trajectory_y, linestyle='dashed', color='gray', alpha=0.7)
         draw_airplane(ax, x, y, point['heading'], size=3)
 
-        # Draw target point
-        ax.plot(target_x, target_y, 'ro', markersize=10, label="Target")
-        ax.text(target_x + 5, target_y + 5, "Target", color='red', fontsize=12)
+        # Keep target point in view, place it at the edge if necessary
+        tx = min(max(target_x, x - window_size / 2), x + window_size / 2)
+        ty = min(max(target_y, y - window_size / 2), y + window_size / 2)
+        ax.plot(tx, ty, 'ro', markersize=10, label="Target")
+        ax.text(tx + 5, ty + 5, "Target", color='red', fontsize=12)
 
         # Annotations
-        ax.text(-250, 250, f"Step: {point['step']}", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
-        ax.text(-250, 235, f"Position: ({x:.2f}, {y:.2f})", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
-        ax.text(-250, 220, f"Heading: {point['heading']}°", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
-
+        ax.text(x - window_size / 2 + 20, y + window_size / 2 - 20, f"Step: {point['step']}", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
+        ax.text(x - window_size / 2 + 20, y + window_size / 2 - 35, f"Position: ({x:.2f}, {y:.2f})", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
+        ax.text(x - window_size / 2 + 20, y + window_size / 2 - 50, f"Heading: {point['heading']}°", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
+        
         plt.pause(0.05)  # Animation speed
-
+    
     final_lat, final_lon = data[-1]['latitude'], data[-1]['longitude']
     distance_to_target = haversine(final_lat, final_lon, target[0], target[1])
     print(f"Episode {episode_num}: Distance from final step to target = {distance_to_target:.2f} meters")

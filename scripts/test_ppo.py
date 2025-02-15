@@ -1,3 +1,4 @@
+import random
 import numpy as np
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.tasks import NavigationTask  
@@ -7,41 +8,27 @@ import gc
 import math
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
-
+import pandas as pd
+import matplotlib.pyplot as plt
 
 STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
 EPISODE_TIME_S = 10  # Total episode duration in seconds
 EARTH_RADIUS = 6371000  # Earth radius in meters
 CIRCLE_RADIUS = 250     # Circle radius in meters
-NUM_POINTS = 15         # Number of points on the circumference
-TOLERANCE_DISTANCE = 10 # Tolerance distance in meters
-ALTITUDE_THRESHOLD = 100  # Altitude threshold to detect crash or failure
 START_LAT = 37.619
 START_LON = -122.3750
-TOTAL_TIMESTEPS = 100000
-
-MIN_MAX_RANGES = {
-  'Pitch': (0, 2 * np.pi),    #Pitch range (degrees)
-  'Roll': (0, 2 * np.pi),     #Roll range (degrees)
-  'Yaw': (0, 360),            #Yaw range (degrees)
-  'Throttle': (0, 1),         #Throttle range
-  'Altitude': (0, 250),       #Altitude Distance range (meters)
-  'Distance': (0, 1000),      #Distance range (meters)
-  'Yaw Angle': (-180, 180),   #Yaw Angle (radians)
-  'Pitch Angle': (-90, 90)    #Pitch Angle (radians)
-}
 
 
 def create_env(target_point):
-  """Sets up the GymJSBSim environment for the navigation task."""
-  env = JsbSimEnv(
-    task_type=NavigationTask,
-    aircraft=cessna172P,
-    agent_interaction_freq=STEP_FREQUENCY_HZ,
-    shaping=None,
-    target_point=target_point
-  )
-  return env
+    """Sets up the GymJSBSim environment for the navigation task."""
+    env = JsbSimEnv(
+        task_type=NavigationTask,
+        aircraft=cessna172P,
+        agent_interaction_freq=STEP_FREQUENCY_HZ,
+        shaping=None,
+        target_point=target_point
+    )
+    return env
 
 def calculate_circle_point(lat, lon, radius, angle):
   """
@@ -55,7 +42,7 @@ def calculate_circle_point(lat, lon, radius, angle):
                                       math.cos(radius / EARTH_RADIUS) - math.sin(lat_rad) * math.sin(new_lat_rad))
   return math.degrees(new_lat_rad), math.degrees(new_lon_rad)
     
-def generate_equally_spaced_target_points(n=3, radius=CIRCLE_RADIUS):
+def generate_equally_spaced_target_points(n=5, radius=CIRCLE_RADIUS):
   """
   Generates `n` equally spaced points on a circle.
   """
@@ -71,7 +58,7 @@ def generate_equally_spaced_target_points(n=3, radius=CIRCLE_RADIUS):
 
   return points
 
-def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=3):
+def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=5):
   """
   Creates `n` equally spaced target points around a circle centered at the
   provided (start_lat, start_lon), using a given radius in meters.
@@ -89,46 +76,70 @@ def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=3):
 
 
 def save_logs(log):
-  with open("../txt_files/ppo_log.txt", "w") as log_file:
-    
-    log_file.write(f"Best Fitness: {0}\n")
-    log_file.write(f"Target Latitude: {log[0].split(',')[0].split(':')[1].strip()}, ")
-    log_file.write(f"Target Longitude: {log[0].split(',')[1].split(':')[1].strip()}, ")
-    log_file.write(f"Target Altitude: 300m\n")  
-            
-    for step_log in log[1:]:  
-      log_file.write(step_log + "\n")  
+    with open("../txt_files/ppo_log.txt", "w") as log_file:
+        for step_log in log:
+            log_file.write(step_log + "\n")
+
+
+def save_csv(df, filename="ppo_observations.csv"):
+    """Saves the observation DataFrame to a CSV file."""
+    df.to_csv(filename, index=False)
+    print(f"Observations saved to {filename}")
+
 
 if __name__ == "__main__":
-  
-    target_points = create_target_points(START_LAT, START_LON, n=3)
-    target_point = target_points[1]
-    print(f"Training on Target Point: {target_point}")
+    target_points = create_target_points(START_LAT, START_LON, n=5)
+    target_point = random.choice(target_points)
+    print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-
     model = PPO.load("./ppo_navigation_single_target")
-
-    obs = env.reset()  
+    
+    obs = env.reset()
     log = []
-    log.append(f"Target Latitude: {env.task.target_point[0]:.6f}, Target Longitude: {env.task.target_point[1]:.6f}, Target Altitude: 300m")
+    log.append(f"Target Latitude: {target_point[0]}, Target Longitude: {target_point[1]}, Target Altitude: 300m")
     log.append("Step\tLatitude\tLongitude\tAltitude\tHeading")
+    
     done = False
     step_count = 0
-
-    while not done and step_count < EPISODE_TIME_S * STEP_FREQUENCY_HZ:
-      action, _states = model.predict(obs, deterministic=True)
-      obs, reward, done, info = env.step(action)
-      step_count += 1
-
-      current_lat = env.sim[prp.lat_geod_deg]
-      current_lon = env.sim[prp.lng_geoc_deg]
-      current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
-      heading = env.sim[prp.heading_deg]
-      log.append(f"{step_count}\t{current_lat:.6f}\t{current_lon:.6f}\t{current_alt}\t{heading}")
-
+    observations = []
+    
+    while not done and step_count < 250:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, done, info = env.step(action)
+        observations.append(list(obs))
+        step_count += 1
+        current_lat = env.sim[prp.lat_geod_deg]
+        current_lon = env.sim[prp.lng_geoc_deg]
+        current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
+        heading = env.sim[prp.heading_deg]
+        log.append(f"{step_count}\t{current_lat}\t{current_lon}\t{current_alt}\t{heading}")
+    
     save_logs(log)
     gc.collect()
-
-    print("Training completed for all target points!")
-  
+    
+    obs_labels = [
+        "Roll (deg)", "Pitch (deg)", "Yaw (deg)", "Throttle",
+        "Altitude (m)", "Distance to Target (m)",
+        "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)"
+    ]
+    df_obs = pd.DataFrame(observations, columns=obs_labels)
+    
+    df_obs["Roll (deg)"] = np.degrees(df_obs["Roll (deg)"])
+    df_obs["Pitch (deg)"] = np.degrees(df_obs["Pitch (deg)"])
+    df_obs["Yaw (deg)"] = np.degrees(df_obs["Yaw (deg)"])
+    df_obs["Yaw Angle to Target (deg)"] = np.degrees(df_obs["Yaw Angle to Target (deg)"])
+    df_obs["Pitch Angle to Target (deg)"] = np.degrees(df_obs["Pitch Angle to Target (deg)"])
+    
+    save_csv(df_obs)
+    
+    plt.figure(figsize=(12, 8))
+    for column in df_obs.columns:
+        plt.plot(df_obs.index.to_numpy(), df_obs[column].to_numpy(), label=column)
+    
+    plt.xlabel("Timestep")
+    plt.ylabel("Value")
+    plt.title("PPO Observations Over Time (Angles in Degrees)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
