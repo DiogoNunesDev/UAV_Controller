@@ -76,7 +76,7 @@ def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=5):
 
 
 def save_logs(log):
-    with open("../txt_files/ppo_log.txt", "w") as log_file:
+    with open("../../txt_files/ppo_log.txt", "w") as log_file:
         for step_log in log:
             log_file.write(step_log + "\n")
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("./ppo_navigation_single_target")
+    model = PPO.load("../models/ppo_navigation_intermedio_5000000_steps.zip")
     
     obs = env.reset()
     log = []
@@ -107,6 +107,7 @@ if __name__ == "__main__":
     while not done and step_count < 250:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
+        print(obs)
         observations.append(list(obs))
         step_count += 1
         current_lat = env.sim[prp.lat_geod_deg]
@@ -124,7 +125,7 @@ if __name__ == "__main__":
         "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)"
     ]
     df_obs = pd.DataFrame(observations, columns=obs_labels)
-    
+    df_obs["Throttle"] = df_obs["Throttle"] * 100
     df_obs["Roll (deg)"] = np.degrees(df_obs["Roll (deg)"])
     df_obs["Pitch (deg)"] = np.degrees(df_obs["Pitch (deg)"])
     df_obs["Yaw (deg)"] = np.degrees(df_obs["Yaw (deg)"])

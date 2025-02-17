@@ -151,4 +151,4 @@ def main(file_path):
             plot_moving_trajectory(data, target, initial_lat, initial_lon, episode_num)
 
 # Main Execution
-main("../txt_files/ppo_log.txt")
+main("../../txt_files/ppo_log.txt")

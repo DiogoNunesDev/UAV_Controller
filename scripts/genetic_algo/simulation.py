@@ -1,4 +1,4 @@
-from controller.scripts.neural_network import NeuralNetwork
+from controller.scripts.genetic_algo.neural_network import NeuralNetwork
 import random
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
