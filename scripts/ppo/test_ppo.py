@@ -98,7 +98,7 @@ if __name__ == "__main__":
     obs = env.reset()
     log = []
     log.append(f"Target Latitude: {target_point[0]}, Target Longitude: {target_point[1]}, Target Altitude: 300m")
-    log.append("Step\tLatitude\tLongitude\tAltitude\tHeading")
+    log.append("Step\tLatitude\tLongitude\tAltitude\tHeading\tRoll\tPitch")
     
     done = False
     step_count = 0
@@ -106,15 +106,19 @@ if __name__ == "__main__":
     
     while not done and step_count < 250:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
+        print(action)
+        #action = np.array([1,0,0,1])
         obs, reward, done, info = env.step(action)
-        print(obs)
+        #print(obs)
         observations.append(list(obs))
         step_count += 1
         current_lat = env.sim[prp.lat_geod_deg]
         current_lon = env.sim[prp.lng_geoc_deg]
         current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
-        heading = env.sim[prp.heading_deg]
-        log.append(f"{step_count}\t{current_lat}\t{current_lon}\t{current_alt}\t{heading}")
+        heading = obs[2]
+        roll = obs[0]
+        pitch = obs[1]
+        log.append(f"{step_count}\t{current_lat}\t{current_lon}\t{current_alt}\t{heading}\t{roll}\t{pitch}")
     
     save_logs(log)
     gc.collect()
@@ -122,9 +126,10 @@ if __name__ == "__main__":
     obs_labels = [
         "Roll (deg)", "Pitch (deg)", "Yaw (deg)", "Throttle",
         "Altitude (m)", "Distance to Target (m)",
-        "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)"
+        "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)", 
+        "u_fps", "Altitude_change",
     ]
-    df_obs = pd.DataFrame(observations, columns=obs_labels)
+    df_obs = pd.DataFrame(observations[0::10], columns=obs_labels)
     df_obs["Throttle"] = df_obs["Throttle"] * 100
     df_obs["Roll (deg)"] = np.degrees(df_obs["Roll (deg)"])
     df_obs["Pitch (deg)"] = np.degrees(df_obs["Pitch (deg)"])

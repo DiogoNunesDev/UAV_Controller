@@ -480,6 +480,7 @@ class NavigationTask(FlightTask):
         return reward
     
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple[NamedTuple, float, bool, Dict]:
+        #print(action)
         for prop, command in zip(self.action_variables, action):
             sim[prop] = command
         for _ in range(sim_steps):
@@ -516,8 +517,11 @@ class NavigationTask(FlightTask):
             prp.initial_longitude_geoc_deg: -122.3750,  
             prp.initial_terrain_altitude_ft: 0,        
             prp.engine_running: 1,                      
-            prp.throttle_cmd: 0.5,                      
+            prp.throttle_cmd: 1,                      
             prp.initial_u_fps: 150,
+            prp.initial_p_radps: 0,
+            prp.initial_q_radps: 0,
+            prp.initial_r_radps: 0,
         }
         return initial_conditions
 
@@ -563,6 +567,15 @@ class NavigationTask(FlightTask):
         yaw_angle_to_target = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_yaw)
         pitch_angle_to_target = self.calculate_pitch_angle(current_altitude)
         
+        u_vel = sim[prp.u_fps]
+        #v_vel = sim[prp.v_fps]
+        #w_vel = sim[prp.w_fps]
+        altitude_rate = sim[prp.altitude_rate_fps] 
+        
+        p_rad = sim[prp.p_radps]
+        q_rad = sim[prp.q_radps]
+        r_rad = sim[prp.r_radps]
+        
         observation = np.array([
             current_roll,
             current_pitch,
@@ -571,7 +584,12 @@ class NavigationTask(FlightTask):
             current_altitude,
             distance,
             yaw_angle_to_target,
-            pitch_angle_to_target
+            pitch_angle_to_target,
+            u_vel,
+            altitude_rate,
+            p_rad,
+            q_rad,
+            r_rad,
         ], dtype=np.float32)
         
         for i, (low, high) in enumerate(zip(self.get_state_space().low, self.get_state_space().high)):
@@ -755,7 +773,12 @@ class NavigationTask(FlightTask):
             0.0,      # Altitude (meters)
             0.0,      # Distance (meters)
             -np.pi,     # Yaw angle (degrees)
-            -np.pi/2       # Pitch angle (degrees)
+            -np.pi/2,       # Pitch angle (degrees)
+            -2200,
+            -250,
+            -2 * math.pi, 
+            -2 * math.pi,
+            -2 * math.pi,
         ], dtype=np.float32)
 
         highs = np.array([
@@ -764,9 +787,14 @@ class NavigationTask(FlightTask):
             np.pi,    # Yaw
             1.0,      # Throttle
             1000,     # Altitude (meters)
-            2000,     # Distance
+            4000,     # Distance
             np.pi,      # Yaw angle
-            np.pi/2        # Pitch angle
+            np.pi/2,        # Pitch angle
+            2200,
+            250,
+            2 * math.pi,
+            2 * math.pi,
+            2 * math.pi,
         ], dtype=np.float32)
         return spaces.Box(low=lows, high=highs, dtype=np.float32)
 
