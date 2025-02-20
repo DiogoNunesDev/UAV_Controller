@@ -471,10 +471,12 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
-    def setReward(self, distance, crashed, alt_dist):
+    def setReward(self, distance, crashed, altitude_deviation):
         """ Sets the reward of the individual"""
         crash_penalty = -100 if crashed else 0
-        reward = 0.6*(1 / (distance + 1)) + crash_penalty - 0.4 * (alt_dist/300)
+        target_reward = (1 / (distance + 1))
+        altitude_penalty = - (altitude_deviation/300)
+        reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty
         return reward
     
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple[NamedTuple, float, bool, Dict]:
@@ -487,11 +489,12 @@ class NavigationTask(FlightTask):
         observation = self.observe_first_state(sim)
         self.n_steps += 1
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048
-        alt_dist = abs(300 - current_altitude)
+        altitude_deviation = abs(300 - current_altitude)
         crashed = current_altitude <= 100
         distance_to_target = observation[5]
-        reward = self.setReward(distance_to_target, crashed, alt_dist)
-        done = self._is_terminal(sim, distance_to_target, current_altitude)
+        reward = self.setReward(distance_to_target, crashed, altitude_deviation)
+        
+        done = self._is_terminal(sim, distance_to_target, current_altitude, observation)
 
         if done:
             reward = self._reward_terminal_override(reward, sim, distance_to_target, current_altitude)
@@ -573,7 +576,7 @@ class NavigationTask(FlightTask):
         
         for i, (low, high) in enumerate(zip(self.get_state_space().low, self.get_state_space().high)):
             if not (low <= observation[i] <= high):
-                print(f"🚨 Observation {i}: {observation[i]} is out of range! Expected: [{low}, {high}]")
+                print(f"Observation {i}: {observation[i]} is out of range! Expected: [{low}, {high}]")
         
         assert self.get_state_space().contains(observation), f"Observation out of bounds: {observation}"
         
@@ -700,14 +703,27 @@ class NavigationTask(FlightTask):
         self.target_point = random.choice(target_points)
         self.target_lat, self.target_lon = self.target_point[0], self.target_point[1]
 
-    def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float) -> bool:
+    def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float, observation: list) -> bool:
         """Determines if the episode should end based on distance to target or altitude."""
 
-        if distance_to_target < 5.0 or current_altitude < 100.0:
+        for obs in observation:
+            if obs is None: 
+                print("ERROR: Observation is None! Resetting the environment.")
+                return True
+
+        if np.isnan(observation).any() or np.isinf(observation).any():
+            print("ERROR: NaN detected in observation! Resetting environment.")
             return True
         
-        #print(f'Current Altitude: {current_altitude} ||| Distance to Target: {distance_to_target}')
+        current_roll = observation[0]
         
+        if current_roll > math.radians(180) or current_roll < math.radians(-180):
+            print(f"Roll is bigger than the threshold: {current_roll:.2f}")
+            return True
+        
+        if distance_to_target < 5.0 or current_altitude < 100.0:
+            return True
+                
         return False
 
     def _reward_terminal_override(self, reward: float, sim: Simulation, distance_to_target: float, current_altitude: float) -> float:

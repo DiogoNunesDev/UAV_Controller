@@ -93,7 +93,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation_intermedio_5000000_steps.zip")
+    model = PPO.load("../models//ppo_navigation_latest.zip")
     
     obs = env.reset()
     log = []
