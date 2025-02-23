@@ -10,11 +10,12 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 import pandas as pd
 import matplotlib.pyplot as plt
+from utils import unnormalize_observation
 
 STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
 EPISODE_TIME_S = 10  # Total episode duration in seconds
 EARTH_RADIUS = 6371000  # Earth radius in meters
-CIRCLE_RADIUS = 250     # Circle radius in meters
+CIRCLE_RADIUS = 500     # Circle radius in meters
 START_LAT = 37.619
 START_LON = -122.3750
 
@@ -88,14 +89,15 @@ def save_csv(df, filename="ppo_observations.csv"):
 
 
 if __name__ == "__main__":
-    target_points = create_target_points(START_LAT, START_LON, n=5)
+    target_points = create_target_points(START_LAT, START_LON, n=15)
     target_point = random.choice(target_points)
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models//ppo_navigation_latest.zip")
+    model = PPO.load("../models/ppo_navigation_50000000_steps.zip")
     
     obs = env.reset()
+    obs = unnormalize_observation(obs)
     log = []
     log.append(f"Target Latitude: {target_point[0]}, Target Longitude: {target_point[1]}, Target Altitude: 300m")
     log.append("Step\tLatitude\tLongitude\tAltitude\tHeading\tRoll\tPitch")
@@ -127,9 +129,10 @@ if __name__ == "__main__":
         "Roll (deg)", "Pitch (deg)", "Yaw (deg)", "Throttle",
         "Altitude (m)", "Distance to Target (m)",
         "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)", 
-        "u_fps", "Altitude_change",
+        "u_fps", "Altitude_change", "Pitch Rate [rad/s]", "Yaw Rate [rad/s]", "Roll Rate [rad/s]",
     ]
-    df_obs = pd.DataFrame(observations[0::10], columns=obs_labels)
+    
+    df_obs = pd.DataFrame(observations, columns=obs_labels)
     df_obs["Throttle"] = df_obs["Throttle"] * 100
     df_obs["Roll (deg)"] = np.degrees(df_obs["Roll (deg)"])
     df_obs["Pitch (deg)"] = np.degrees(df_obs["Pitch (deg)"])

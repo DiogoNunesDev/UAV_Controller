@@ -3,6 +3,7 @@ import numpy as np
 import math
 import gc
 import time
+import os
 from gym_jsbsim.environment import JsbSimEnv
 from gym_jsbsim.tasks import NavigationTask  
 from gym_jsbsim.aircraft import cessna172P
@@ -21,7 +22,7 @@ ALTITUDE_THRESHOLD = 100
 START_LAT = 37.619
 START_LON = -122.3750
 TOTAL_TIMESTEPS = 50000000
-RESTART_INTERVAL = 2500000  
+RESTART_INTERVAL = 5000000  
 MODEL_PATH = ""  
 SAVE_PATH = "../models/ppo_navigation"
 
@@ -63,6 +64,18 @@ if __name__ == "__main__":
     print("Initializing environments...")
     vec_env = create_vec_env()
 
+    # Ensure the model save directory exists
+    os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
+
+    # Define a checkpoint callback
+    checkpoint_callback = CheckpointCallback(
+        save_freq=RESTART_INTERVAL,
+        save_path=os.path.dirname(SAVE_PATH),
+        name_prefix="ppo_navigation",
+        save_replay_buffer=True,
+        save_vecnormalize=True
+    )
+
     try:
         model = PPO.load(MODEL_PATH, env=vec_env, device="cpu", verbose=1)
         print("Loaded existing model.")
@@ -80,22 +93,8 @@ if __name__ == "__main__":
             verbose=1,
         )
 
-    # Training loop with JSBSim restart every RESTART_INTERVAL steps
-    for i in range(TOTAL_TIMESTEPS // RESTART_INTERVAL):
-        print(f"Training Cycle {i+1}/{TOTAL_TIMESTEPS // RESTART_INTERVAL}")
-
-        model.learn(total_timesteps=RESTART_INTERVAL)
-        model.save(f"{SAVE_PATH}_latest")
-        print(f"Model checkpoint saved at {SAVE_PATH}_latest")
-
-        vec_env.close()
-        del vec_env
-        gc.collect()
-        print("Restarting JSBSim...")
-        time.sleep(10)  
-
-        vec_env = create_vec_env()
-        model.set_env(vec_env)
+    # Train with callback instead of manually stopping
+    model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=checkpoint_callback)
 
     print("Training complete!")
     model.save(f"{SAVE_PATH}_final")
