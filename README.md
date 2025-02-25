@@ -55,10 +55,7 @@ Examples:
   
 </p>
 
-<img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Dinamic_Aircraft_Path.gif" width="600px" height="400px" style="display: inline-block; vertical-align: middle;"/>
-
-
-![Altitude Change]()
+<img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Dinamic_Aircraft_Path.gif" width="500px" height="500px"/>
 
 ---
 
