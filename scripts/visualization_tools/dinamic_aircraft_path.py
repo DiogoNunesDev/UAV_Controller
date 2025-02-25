@@ -116,11 +116,10 @@ def plot_moving_trajectory(data, target, initial_lat, initial_lon, episode_num):
         ax.set_ylim(y - window_size / 2, y + window_size / 2)
         ax.grid(True)
 
-        # Plot trajectory
+        # Trajectory
         ax.plot(trajectory_x, trajectory_y, linestyle='dashed', color='gray', alpha=0.7)
         draw_airplane(ax, x, y, point['heading'], size=3)
 
-        # Keep target point in view, place it at the edge if necessary
         tx = min(max(target_x, x - window_size / 2), x + window_size / 2)
         ty = min(max(target_y, y - window_size / 2), y + window_size / 2)
         ax.plot(tx, ty, 'ro', markersize=10, label="Target")
@@ -128,8 +127,8 @@ def plot_moving_trajectory(data, target, initial_lat, initial_lon, episode_num):
 
         # Annotations
         ax.text(x - window_size / 2 + 20, y + window_size / 2 - 20, f"Step: {point['step']}", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
-        ax.text(x - window_size / 2 + 20, y + window_size / 2 - 35, f"Position: ({x:.2f}, {y:.2f})", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
-        ax.text(x - window_size / 2 + 20, y + window_size / 2 - 50, f"Heading: {point['heading']}°", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
+        ax.text(x - window_size / 2 + 20, y + window_size / 2 - 35, f"Altitude: {point['altitude']}", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
+        #ax.text(x - window_size / 2 + 20, y + window_size / 2 - 50, f"Heading: {point['heading']}°", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
         
         plt.pause(0.05)  # Animation speed
     

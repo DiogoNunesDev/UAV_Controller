@@ -10,15 +10,61 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 import pandas as pd
 import matplotlib.pyplot as plt
-from utils import unnormalize_observation
+from gym import spaces
 
 STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
 EPISODE_TIME_S = 10  # Total episode duration in seconds
 EARTH_RADIUS = 6371000  # Earth radius in meters
-CIRCLE_RADIUS = 500     # Circle radius in meters
+CIRCLE_RADIUS = 1000     # Circle radius in meters
 START_LAT = 37.619
 START_LON = -122.3750
 
+def get_state_space():
+  lows = np.array([
+      -np.pi,   # Roll
+      -np.pi/2, # Pitch
+      -np.pi,   # Yaw (normalized to -π to π)
+      0.0,      # Throttle (0 to 1)
+      0.0,      # Altitude (meters)
+      0.0,      # Distance (meters)
+      -np.pi,     # Yaw angle (degrees)
+      -np.pi/2,       # Pitch angle (degrees)
+      -2200,
+      -250,
+      -2 * math.pi, 
+      -2 * math.pi,
+      -2 * math.pi,
+  ], dtype=np.float32)
+
+  highs = np.array([
+      np.pi,    # Roll
+      np.pi/2,  # Pitch
+      np.pi,    # Yaw
+      1.0,      # Throttle
+      1000,     # Altitude (meters)
+      3000,     # Distance
+      np.pi,      # Yaw angle
+      np.pi/2,        # Pitch angle
+      2200,
+      250,
+      2 * math.pi,
+      2 * math.pi,
+      2 * math.pi,
+  ], dtype=np.float32)
+  return spaces.Box(low=lows, high=highs, dtype=np.float32)
+
+
+def unnormalize_observation(normalized_obs: np.ndarray) -> np.ndarray:
+  """
+  Reverts the normalization of an observation from [-1, 1] back to the original scale.
+  """
+  lows = get_state_space().low
+  highs = get_state_space().high
+
+  # Reverse min-max scaling: x = 0.5 * ((x_norm + 1) * (max - min)) + min
+  original_obs = 0.5 * ((normalized_obs + 1) * (highs - lows)) + lows
+
+  return original_obs
 
 def create_env(target_point):
     """Sets up the GymJSBSim environment for the navigation task."""
@@ -89,15 +135,14 @@ def save_csv(df, filename="ppo_observations.csv"):
 
 
 if __name__ == "__main__":
-    target_points = create_target_points(START_LAT, START_LON, n=15)
+    target_points = create_target_points(START_LAT, START_LON, n=30)
     target_point = random.choice(target_points)
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation_50000000_steps.zip")
+    model = PPO.load("../models/ppo_navigation_final.zip")
     
     obs = env.reset()
-    obs = unnormalize_observation(obs)
     log = []
     log.append(f"Target Latitude: {target_point[0]}, Target Longitude: {target_point[1]}, Target Altitude: 300m")
     log.append("Step\tLatitude\tLongitude\tAltitude\tHeading\tRoll\tPitch")
@@ -107,19 +152,21 @@ if __name__ == "__main__":
     observations = []
     
     while not done and step_count < 250:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
+        print(obs)
         action, _states = model.predict(obs, deterministic=True)
-        print(action)
+        #print(action)
         #action = np.array([1,0,0,1])
         obs, reward, done, info = env.step(action)
+        unnormalize_obs = unnormalize_observation(obs)
         #print(obs)
-        observations.append(list(obs))
+        observations.append(list(unnormalize_obs))
         step_count += 1
         current_lat = env.sim[prp.lat_geod_deg]
         current_lon = env.sim[prp.lng_geoc_deg]
         current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
-        heading = obs[2]
-        roll = obs[0]
-        pitch = obs[1]
+        heading = unnormalize_obs[2]
+        roll = unnormalize_obs[0]
+        pitch = unnormalize_obs[1]
         log.append(f"{step_count}\t{current_lat}\t{current_lon}\t{current_alt}\t{heading}\t{roll}\t{pitch}")
     
     save_logs(log)

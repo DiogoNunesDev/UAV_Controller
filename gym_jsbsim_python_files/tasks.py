@@ -474,8 +474,8 @@ class NavigationTask(FlightTask):
     def setReward(self, distance, crashed, altitude_deviation):
         """ Sets the reward of the individual"""
         crash_penalty = -100 if crashed else 0
-        target_reward = (1 / (distance + 1))
-        altitude_penalty = - (altitude_deviation/300)
+        target_reward = (1 / (distance + 1)) * 100
+        altitude_penalty = - (altitude_deviation/5000)
         reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty
         return reward
     
@@ -492,7 +492,8 @@ class NavigationTask(FlightTask):
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048
         altitude_deviation = abs(300 - current_altitude)
         crashed = current_altitude <= 100
-        distance_to_target = observation[5]
+        unnormalized_observations = self.unnormalize_observation(observation)
+        distance_to_target = unnormalized_observations[5]
         reward = self.setReward(distance_to_target, crashed, altitude_deviation)
         
         done = self._is_terminal(sim, distance_to_target, current_altitude, observation)
@@ -518,12 +519,24 @@ class NavigationTask(FlightTask):
             prp.initial_terrain_altitude_ft: 0,        
             prp.engine_running: 1,                      
             prp.throttle_cmd: 1,                      
-            prp.initial_u_fps: 150,
+            prp.initial_u_fps: 100,
             prp.initial_p_radps: 0,
             prp.initial_q_radps: 0,
             prp.initial_r_radps: 0,
         }
         return initial_conditions
+
+    def unnormalize_observation(self, normalized_obs: np.ndarray) -> np.ndarray:
+        """
+        Reverts the normalization of an observation from [-1, 1] back to the original scale.
+        """
+        lows = self.get_state_space().low
+        highs = self.get_state_space().high
+
+        # Reverse min-max scaling: x = 0.5 * ((x_norm + 1) * (max - min)) + min
+        original_obs = 0.5 * ((normalized_obs + 1) * (highs - lows)) + lows
+
+        return original_obs
 
     def normalize_yaw(self, yaw):
         while yaw > math.pi:
@@ -531,6 +544,18 @@ class NavigationTask(FlightTask):
         while yaw < -math.pi:
             yaw += 2 * math.pi
         return yaw
+
+    def normalize_observation(self, observation: np.ndarray) -> np.ndarray:
+        """
+        Normalizes each feature of the observation to be within [-1,1].
+        """
+        lows = self.get_state_space().low
+        highs = self.get_state_space().high
+
+        # Min-max normalization formula: x_norm = (x - min) / (max - min)
+        normalized_obs = 2 * (observation - lows) / (highs - lows) - 1
+
+        return normalized_obs
 
     def observe_first_state(self, sim: Simulation) -> np.ndarray:
         """
@@ -540,38 +565,17 @@ class NavigationTask(FlightTask):
         current_roll = sim[prp.roll_rad]  # Roll in radians
         current_pitch = sim[prp.pitch_rad]  # Pitch in radians
         current_yaw = math.radians(sim[prp.heading_deg])  # Yaw converted to radians
-        current_yaw = self.normalize_yaw(current_yaw)  # Normalize to [-π, π]
+        current_yaw = self.normalize_yaw(current_yaw)  # Normalized to [-π, π]
+        
         throttle = sim[prp.throttle_cmd] # [0, 1]
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048  # Altitude (AGL) from feet to meters
-        current_altitude_msl = sim[prp.altitude_sl_ft] * 0.3048  # Altitude (MSL) from feet to meters
-
-        # GPS Position
-        current_lat = sim[prp.lat_geod_deg]  # Latitude 
-        current_lon = sim[prp.lng_geoc_deg]  # Longitude 
-
-        # Velocities
-        velocity_north = sim[prp.v_north_fps] * 30.48  # Velocity North in cm/s
-        velocity_east = sim[prp.v_east_fps] * 30.48  # Velocity East in cm/s
-        velocity_down = sim[prp.v_down_fps] * 30.48  # Velocity Down in cm/s
-        ground_speed = math.sqrt(velocity_north**2 + velocity_east**2)  # Ground speed in cm/s
-
-        # Heading
-        heading = sim[prp.heading_deg] * 100  # Heading in centi-degrees (0-36000)
-
-        # Angular Velocities
-        roll_speed = sim[prp.p_radps]  # Roll rate in rad/s
-        pitch_speed = sim[prp.q_radps]  # Pitch rate in rad/s
-        yaw_speed = sim[prp.r_radps]  # Yaw rate in rad/s
-        
+         
         distance = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], self.target_alt)
         yaw_angle_to_target = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_yaw)
         pitch_angle_to_target = self.calculate_pitch_angle(current_altitude)
         
         u_vel = sim[prp.u_fps]
-        #v_vel = sim[prp.v_fps]
-        #w_vel = sim[prp.w_fps]
         altitude_rate = sim[prp.altitude_rate_fps] 
-        
         p_rad = sim[prp.p_radps]
         q_rad = sim[prp.q_radps]
         r_rad = sim[prp.r_radps]
@@ -593,36 +597,20 @@ class NavigationTask(FlightTask):
         ], dtype=np.float32)
         
         for i, (low, high) in enumerate(zip(self.get_state_space().low, self.get_state_space().high)):
-            if not (low <= observation[i] <= high):
+            if observation[i] is None:
+                print(f"Observation {i}: None value detected!")
+            elif np.isnan(observation[i]):
+                print(f"Observation {i}: NaN detected!")
+            elif np.isinf(observation[i]):
+                print(f"Observation {i}: Inf detected!")
+            elif not (low <= observation[i] <= high):
                 print(f"Observation {i}: {observation[i]} is out of range! Expected: [{low}, {high}]")
-        
+
+        assert not any(obs is None or np.isnan(obs) or np.isinf(obs) for obs in observation), "Observation contains invalid values (None, NaN, or Inf)!"
         assert self.get_state_space().contains(observation), f"Observation out of bounds: {observation}"
         
-        """
-            observation = np.array([
-            current_roll,
-            current_pitch,
-            current_yaw,
-            throttle,
-            current_altitude,
-            distance,
-            yaw_angle_to_target,
-            pitch_angle_to_target,
-            
-            current_altitude_msl,
-            current_lat,
-            current_lon,
-            velocity_north,
-            velocity_east,
-            velocity_down,
-            ground_speed,
-            heading,
-            roll_speed,
-            pitch_speed,
-            yaw_speed,
-            
-        ], dtype=np.float32)
-        """
+        #Normalizing using min-max scaler
+        observation = self.normalize_observation(observation)
         
         return observation
 
@@ -684,7 +672,7 @@ class NavigationTask(FlightTask):
                                             math.cos(radius / EARTH_RADIUS) - math.sin(lat_rad) * math.sin(new_lat_rad))
         return math.degrees(new_lat_rad), math.degrees(new_lon_rad)
         
-    def generate_equally_spaced_target_points(n=5, radius=CIRCLE_RADIUS):
+    def generate_equally_spaced_target_points(n=10, radius=CIRCLE_RADIUS):
         """
         Generates `n` equally spaced points on a circle.
         """
@@ -700,7 +688,7 @@ class NavigationTask(FlightTask):
 
         return points
 
-    def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=5):
+    def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=10):
         """
         Creates `n` equally spaced target points around a circle centered at the
         provided (start_lat, start_lon), using a given radius in meters.
@@ -723,7 +711,7 @@ class NavigationTask(FlightTask):
 
     def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float, observation: list) -> bool:
         """Determines if the episode should end based on distance to target or altitude."""
-
+        """
         for obs in observation:
             if obs is None: 
                 print("ERROR: Observation is None! Resetting the environment.")
@@ -732,24 +720,24 @@ class NavigationTask(FlightTask):
         if np.isnan(observation).any() or np.isinf(observation).any():
             print("ERROR: NaN detected in observation! Resetting environment.")
             return True
-        
+        """
         current_roll = observation[0]
-        
-        if current_roll > math.radians(180) or current_roll < math.radians(-180):
-            print(f"Roll is bigger than the threshold: {current_roll:.2f}")
-            return True
-        
-        if distance_to_target < 5.0 or current_altitude < 100.0:
+                
+        if distance_to_target < 10.0 or current_altitude < 100.0 or distance_to_target > 2950:
             return True
                 
         return False
 
     def _reward_terminal_override(self, reward: float, sim: Simulation, distance_to_target: float, current_altitude: float) -> float:
-        """Overrides the reward if terminal conditions are met, adding a bonus for reaching target or penalty for crashing."""
-        if distance_to_target < 5.0:
+        """Overrides the reward if terminal conditions are met, adding a bonus for reaching target or penalty for crashing or going over the altitude limit."""
+        if distance_to_target < 10.0:
             reward += 100  
-        elif current_altitude < 3.0:
+        elif current_altitude < 100:
             reward -= 100  
+        elif 290 < current_altitude < 310:
+             reward += 50
+        
+
         return reward
     
     def get_props_to_output(self) -> Tuple:
@@ -787,7 +775,7 @@ class NavigationTask(FlightTask):
             np.pi,    # Yaw
             1.0,      # Throttle
             1000,     # Altitude (meters)
-            4000,     # Distance
+            3000,     # Distance
             np.pi,      # Yaw angle
             np.pi/2,        # Pitch angle
             2200,

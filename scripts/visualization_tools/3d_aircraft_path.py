@@ -85,7 +85,7 @@ def animate_3d_trajectory(data):
     z_vals.append(z)
 
     ax.clear()
-    ax.plot(x_vals, y_vals, z_vals, label="Aircraft Path", color='b')
+    ax.plot(x_vals, y_vals, z_vals, label="Aircraft Path", color='#0084FF')
 
     #Plotting aircraft position with orientation arrow
     if i > 0:
@@ -98,7 +98,7 @@ def animate_3d_trajectory(data):
       dy /= norm
       dz /= norm
 
-      ax.quiver(x_vals[i], y_vals[i], z_vals[i], dx, dy, dz, color='r', length=20, normalize=True)
+      ax.quiver(x_vals[i], y_vals[i], z_vals[i], dx, dy, dz, color='#FF1100', length=20, normalize=True)
 
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
