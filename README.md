@@ -60,12 +60,12 @@ Below is the latest progress of our autonomous UAV controller:
 
 ### Flight Path & Altitude Analysis in 3D
 <p align="center">
-  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/2D_Graph.png" width="400px" height="400px" style="display: inline-block; vertical-align: middle; margin-right: 10px;"/>
+  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/3D_Aircraft_Path.png" width="400px" height="400px" style="display: inline-block; vertical-align: middle; margin-right: 10px;"/>
 </p>
 
 ### Data Analysis
 <p align="center">
-  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Sensor_Data.png" width="800px" height="500px"/>
+  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Sensors.png" width="800px" height="500px"/>
 </p>
 
 ---
