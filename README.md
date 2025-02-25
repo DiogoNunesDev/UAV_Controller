@@ -55,7 +55,7 @@ Examples:
   
 </p>
 
-<img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Dinamic_Aircraft_Path.gif" width="500px" height="500px"/>
+<img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Dinamic_Aircraft_Path.gif" width="800px" height="500px"/>
 
 ---
 
