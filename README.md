@@ -51,7 +51,7 @@ Examples:
 
 <p align="center">
   <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Static_Aircraft_Path_2D.png" width="400px" height="400px" />
-  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Dinamic_Aircraft_Path.gif" width="800px" height="400px" />
+  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Dinamic_Aircraft_Path.gif" width="700px" height="400px" />
 </p>
 
 ![Altitude Change](https://github.com/DiogoNunesDev/AirplaneController/blob/main/Altitude_Change.png)
