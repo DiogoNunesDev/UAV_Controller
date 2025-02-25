@@ -21,9 +21,9 @@ TOLERANCE_DISTANCE = 10
 ALTITUDE_THRESHOLD = 100  
 START_LAT = 37.619
 START_LON = -122.3750
-TOTAL_TIMESTEPS = 50000000
+TOTAL_TIMESTEPS = 20000000
 RESTART_INTERVAL = 5000000  
-MODEL_PATH = ""  
+MODEL_PATH = "../models/ppo_50M"  
 SAVE_PATH = "../models/ppo_navigation"
 
 NUM_CPU = 5
@@ -79,6 +79,8 @@ if __name__ == "__main__":
     try:
         model = PPO.load(MODEL_PATH, env=vec_env, device="cpu", verbose=1)
         print("Loaded existing model.")
+        
+        model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=checkpoint_callback, reset_num_timesteps=False)
     except Exception:
         print("No saved model found, starting a new one.")
         model = PPO(
@@ -92,9 +94,8 @@ if __name__ == "__main__":
             device="cpu",
             verbose=1,
         )
-
-    # Train with callback instead of manually stopping
-    model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=checkpoint_callback)
+        
+        model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=checkpoint_callback)
 
     print("Training complete!")
     model.save(f"{SAVE_PATH}_final")

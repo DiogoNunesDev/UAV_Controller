@@ -140,7 +140,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation_final.zip")
+    model = PPO.load("../models/ppo_navigation_first_train.zip")
     
     obs = env.reset()
     log = []
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         "Roll (deg)", "Pitch (deg)", "Yaw (deg)", "Throttle",
         "Altitude (m)", "Distance to Target (m)",
         "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)", 
-        "u_fps", "Altitude_change", "Pitch Rate [rad/s]", "Yaw Rate [rad/s]", "Roll Rate [rad/s]",
+        "Velocity X-Axis", "Altitude_change", "Pitch Rate [rad/s]", "Yaw Rate [rad/s]", "Roll Rate [rad/s]",
     ]
     
     df_obs = pd.DataFrame(observations, columns=obs_labels)

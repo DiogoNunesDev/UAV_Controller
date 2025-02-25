@@ -12,7 +12,7 @@ Currently, the project leverages:
 
 ---
 
-## 🛠 Features
+## Features
 
 - **Simulated UAV Physics Environment**: Uses **gym-jsbsim** to simulate real-world UAV physics.
 - **Deep Reinforcement Learning**: Implements **Actor-Critic PPO** to optimize flight stability and path planning.
@@ -21,7 +21,7 @@ Currently, the project leverages:
 
 ---
 
-## 🎮 Simulation & Training Environment
+## Simulation & Training Environment
 
 The simulation environment is designed to provide realistic UAV dynamics while allowing deep reinforcement learning models to interact with the system. **gym-jsbsim** acts as the main reinforcement learning interface, offering fine-grained control over aircraft states.
 
@@ -33,7 +33,7 @@ The simulation environment is designed to provide realistic UAV dynamics while a
 
 ---
 
-## 🏗 Model & Algorithm: Actor-Critic PPO
+## Model & Algorithm: Actor-Critic PPO
 
 The project employs **Proximal Policy Optimization (PPO)**, an effective on-policy reinforcement learning method that balances exploration and exploitation.
 
@@ -41,25 +41,36 @@ The project employs **Proximal Policy Optimization (PPO)**, an effective on-poli
 
 ---
 
-## 📈 Visualization Tools
+## Visualization Tools
 To monitor training and analyze flight behavior, we implemented visualization tools for:
-- **UAV path trajectories** (2D).
+- **UAV path trajectories** (2D & 3D).
 - **Flight stability** and **altitude changes**.
 - **Sensor data readings** over time.
 
-Examples:
+---
 
+## Current Progress
+
+Below is the latest progress of our autonomous UAV controller:
+
+### UAV Flight Path 
 <p align="center">
-  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Static_Aircraft_Path_2D.png" width="400px" height="400px" style="display: inline-block; vertical-align: middle; margin-right: 10px;"/>
-  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Altitude_Change.png" width="400px" height="400px" style="display: inline-block; vertical-align: middle; margin-right: 10px;"/>
-  
+  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Dinamic_Aircraft_Path.gif" width="800px" height="500px"/>
 </p>
 
-<img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Dinamic_Aircraft_Path.gif" width="800px" height="500px"/>
+### Flight Path & Altitude Analysis in 3D
+<p align="center">
+  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/2D_Graph.png" width="400px" height="400px" style="display: inline-block; vertical-align: middle; margin-right: 10px;"/>
+</p>
+
+### Data Analysis
+<p align="center">
+  <img src="https://github.com/DiogoNunesDev/AirplaneController/blob/main/Sensor_Data.png" width="800px" height="500px"/>
+</p>
 
 ---
 
-## 🚀 Future Directions
+## Future Directions
 Planned improvements include:
 - **Flight log file** to enable 3D visualization in popular tools like: https://www.flightcoach.org/ribbon/plotter.html
 - **Integration of Evolutionary Algorithms** for enhanced optimization.
