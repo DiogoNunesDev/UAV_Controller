@@ -21,9 +21,9 @@ TOLERANCE_DISTANCE = 10
 ALTITUDE_THRESHOLD = 100  
 START_LAT = 37.619
 START_LON = -122.3750
-TOTAL_TIMESTEPS = 20000000
+TOTAL_TIMESTEPS = 50000000
 RESTART_INTERVAL = 5000000  
-MODEL_PATH = "../models/ppo_50M"  
+MODEL_PATH = ""#"../models/ppo_50M"  
 SAVE_PATH = "../models/ppo_navigation"
 
 NUM_CPU = 5
@@ -64,10 +64,8 @@ if __name__ == "__main__":
     print("Initializing environments...")
     vec_env = create_vec_env()
 
-    # Ensure the model save directory exists
     os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
 
-    # Define a checkpoint callback
     checkpoint_callback = CheckpointCallback(
         save_freq=RESTART_INTERVAL,
         save_path=os.path.dirname(SAVE_PATH),
