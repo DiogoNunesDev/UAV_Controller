@@ -15,7 +15,7 @@ from gym import spaces
 STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
 EPISODE_TIME_S = 10  # Total episode duration in seconds
 EARTH_RADIUS = 6371000  # Earth radius in meters
-CIRCLE_RADIUS = 1000     # Circle radius in meters
+CIRCLE_RADIUS = 700     # Circle radius in meters
 START_LAT = 37.619
 START_LON = -122.3750
 

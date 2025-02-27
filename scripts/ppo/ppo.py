@@ -21,8 +21,8 @@ TOLERANCE_DISTANCE = 10
 ALTITUDE_THRESHOLD = 100  
 START_LAT = 37.619
 START_LON = -122.3750
-TOTAL_TIMESTEPS = 50000000
-RESTART_INTERVAL = 5000000  
+TOTAL_TIMESTEPS = 500000000
+SAVE_INTERVAL = 10000000  
 MODEL_PATH = ""#"../models/ppo_50M"  
 SAVE_PATH = "../models/ppo_navigation"
 
@@ -67,8 +67,8 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=RESTART_INTERVAL,
-        save_path=os.path.dirname(SAVE_PATH),
+        save_freq=max(SAVE_INTERVAL // 5, 1),
+        save_path=SAVE_PATH,
         name_prefix="ppo_navigation",
         save_replay_buffer=True,
         save_vecnormalize=True
