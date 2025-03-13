@@ -27,7 +27,7 @@ The simulation environment is designed to provide realistic UAV dynamics while a
 
 ### Environment Features
 - Updated **gym-jsbsim** package to include an initial task of navigating from point A to B.
-- A **Target Point (Objective)** is generated at a distance of **500m** and an altitude of **300m**.
+- A **Target Point (Objective)** is generated at a distance between **4000m** and **4500m**,and an altitude of **300m**.
 - The agent receives inputs from aircraft sensors and outputs attitude changes.
 - The first goal is to get as close as possible to the **Objective** while maintaining altitude and reaching the target in the shortest time possible.
 
