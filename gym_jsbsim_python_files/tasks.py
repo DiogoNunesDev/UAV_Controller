@@ -430,7 +430,7 @@ class NavigationTask(FlightTask):
         self.target_lat = target_point[0]
         self.target_lon = target_point[1]
         self.target_alt = 300
-        self.max_time_s = 60
+        self.max_time_s = 240
         episode_steps = math.ceil(self.max_time_s * step_frequency_hz)
         self.steps_left = BoundedProperty('info/steps_left', 'steps remaining in episode', 0, episode_steps)
         self.aircraft = aircraft
@@ -469,16 +469,17 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
-    def setReward(self, distance, crashed, altitude_deviation):
+    def setReward(self, distance, crashed, altitude_deviation, heading_to_target):
         """ Sets the reward"""
         
         if altitude_deviation > 200:
             altitude_deviation = 200  
         
+        heading_reward = 15.7 - abs(heading_to_target) * 5
         crash_penalty = -1000 if crashed else 0
         target_reward = (1 / (distance + 1)) * 1000
-        altitude_penalty = - (altitude_deviation/500)
-        reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty
+        altitude_penalty = - (altitude_deviation/200)
+        reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
         return reward
     
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple[NamedTuple, float, bool, Dict]:
@@ -496,12 +497,12 @@ class NavigationTask(FlightTask):
         crashed = current_altitude <= 100
         unnormalized_observations = self.unnormalize_observation(observation)
         distance_to_target = unnormalized_observations[5]
-        reward = self.setReward(distance_to_target, crashed, altitude_deviation)
+        heading_to_target = unnormalized_observations[6]
+        #print(f"Heading to target: {heading_to_target}")
+        reward = self.setReward(distance_to_target, crashed, altitude_deviation, heading_to_target)
+        #print(f"Reward: {reward}")
         
         done = self._is_terminal(sim, distance_to_target, current_altitude, observation)
-
-        if done:
-            reward = self._reward_terminal_override(reward, sim, distance_to_target, current_altitude)
 
         # Info dictionary
         info = {
@@ -641,21 +642,15 @@ class NavigationTask(FlightTask):
         y = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(delta_lon)
         
         bearing = math.atan2(x, y)
-        bearing_deg = math.degrees(bearing)
+        yaw_angle = bearing - heading
 
-        if bearing_deg < 0:
-            bearing_deg += 360
-        
-        #Yaw angle = difference between the aircraft's heading and the bearing
-        yaw_angle = bearing_deg - heading
-        
-        #-180° and 180°
-        if yaw_angle > 180:
-            yaw_angle -= 360
-        elif yaw_angle < -180:
-            yaw_angle += 360
-        
-        return math.radians(yaw_angle)
+        # -π and π
+        if yaw_angle > math.pi:
+            yaw_angle -= 2 * math.pi
+        elif yaw_angle < -math.pi:
+            yaw_angle += 2 * math.pi
+
+        return yaw_angle
 
     def calculate_pitch_angle(self, alt1: float) -> float:
         alt2 = self.target_alt
@@ -697,7 +692,7 @@ class NavigationTask(FlightTask):
         """
         Randomly selects a target point from a generated circle of points.
         """
-        CIRCLE_RADIUS = random_number = random.randint(1400, 1500)
+        CIRCLE_RADIUS = random.randint(4000, 4500)
         target_points = self.create_target_points(start_lat=37.6190, start_lon=-122.3750, radius=CIRCLE_RADIUS, n=30)
         self.target_point = random.choice(target_points)
         self.target_lat, self.target_lon = self.target_point
@@ -705,14 +700,14 @@ class NavigationTask(FlightTask):
     def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float, observation: list) -> bool:
         """Determines if the episode should end based on distance to target or altitude."""
                         
-        if distance_to_target < 20.0 or current_altitude < 100.0 or distance_to_target > 2950:
+        if distance_to_target < 20.0 or current_altitude < 100.0 or distance_to_target > 9950:
             return True
                 
         return False
 
     def _reward_terminal_override(self, reward: float, sim: Simulation, distance_to_target: float, current_altitude: float) -> float:
         """Overrides the reward if terminal conditions are met, adding a bonus for reaching target or penalty for crashing or going over the altitude limit."""
-        if distance_to_target < 10.0:
+        if distance_to_target < 20.0:
             reward += 100  
         elif current_altitude < 100:
             reward -= 100  
@@ -757,7 +752,7 @@ class NavigationTask(FlightTask):
             np.pi,    # Yaw
             1.0,      # Throttle
             1000,     # Altitude (meters)
-            3000,     # Distance
+            10000,     # Distance
             np.pi,      # Yaw angle
             np.pi/2,        # Pitch angle
             2200,
