@@ -73,6 +73,6 @@ Below is the latest progress of our autonomous UAV controller:
 ## Future Directions
 Planned improvements include:
 - **Flight log file** to enable 3D visualization in popular tools like: https://www.flightcoach.org/ribbon/plotter.html
-- **Integration of Evolutionary Algorithms** for enhanced optimization.
+- **Creation of a unified autonomous control system** that integrates multiple reinforcement learning (RL)-based tasks, allowing the aircraft to perform complex maneuvers with a single click.
 - **Multi-Agent Coordination**: Enabling multiple UAVs to navigate collaboratively.
 - **Adaptive Learning**: Refining control policies based on real-time flight data.
