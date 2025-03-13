@@ -12,21 +12,18 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 # Constants
-STEP_FREQUENCY_HZ = 5  
-EPISODE_TIME_S = 10  
+STEP_FREQUENCY_HZ = 5
 EARTH_RADIUS = 6371000  
-CIRCLE_RADIUS = 500     
-NUM_POINTS = 15         
-TOLERANCE_DISTANCE = 10 
-ALTITUDE_THRESHOLD = 100  
+CIRCLE_RADIUS = 4000     
+NUM_POINTS = 30         
 START_LAT = 37.619
 START_LON = -122.3750
 TOTAL_TIMESTEPS = 500000000
-SAVE_INTERVAL = 10000000  
+SAVE_INTERVAL = 50000000
 MODEL_PATH = ""#"../models/ppo_50M"  
 SAVE_PATH = "../models/ppo_navigation"
 
-NUM_CPU = 5
+NUM_CPU = 12
 
 def calculate_circle_point(lat, lon, radius, angle):
     """Calculates a point on a circle given the center and radius."""
@@ -67,7 +64,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(SAVE_PATH), exist_ok=True)
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=max(SAVE_INTERVAL // 5, 1),
+        save_freq=max(SAVE_INTERVAL // NUM_CPU, 1),
         save_path=SAVE_PATH,
         name_prefix="ppo_navigation",
         save_replay_buffer=True,

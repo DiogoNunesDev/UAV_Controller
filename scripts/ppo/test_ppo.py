@@ -15,54 +15,50 @@ from gym import spaces
 STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
 EPISODE_TIME_S = 10  # Total episode duration in seconds
 EARTH_RADIUS = 6371000  # Earth radius in meters
-CIRCLE_RADIUS = 700     # Circle radius in meters
+CIRCLE_RADIUS = 4500     # Circle radius in meters
 START_LAT = 37.619
 START_LON = -122.3750
 
-def get_state_space():
-  lows = np.array([
-      -np.pi,   # Roll
-      -np.pi/2, # Pitch
-      -np.pi,   # Yaw (normalized to -π to π)
-      0.0,      # Throttle (0 to 1)
-      0.0,      # Altitude (meters)
-      0.0,      # Distance (meters)
-      -np.pi,     # Yaw angle (degrees)
-      -np.pi/2,       # Pitch angle (degrees)
-      -2200,
-      -250,
-      -2 * math.pi, 
-      -2 * math.pi,
-      -2 * math.pi,
-  ], dtype=np.float32)
+#STATE SPACE
+lows = np.array([
+    -np.pi,   # Roll
+    -np.pi/2, # Pitch
+    -np.pi,   # Yaw (normalized to -π to π)
+    0.0,      # Throttle (0 to 1)
+    0.0,      # Altitude (meters)
+    0.0,      # Distance (meters)
+    -np.pi,     # Yaw angle (degrees)
+    -np.pi/2,       # Pitch angle (degrees)
+    -2200,
+    -250,
+    -2 * math.pi, 
+    -2 * math.pi,
+    -2 * math.pi,
+], dtype=np.float32)
 
-  highs = np.array([
-      np.pi,    # Roll
-      np.pi/2,  # Pitch
-      np.pi,    # Yaw
-      1.0,      # Throttle
-      1000,     # Altitude (meters)
-      3000,     # Distance
-      np.pi,      # Yaw angle
-      np.pi/2,        # Pitch angle
-      2200,
-      250,
-      2 * math.pi,
-      2 * math.pi,
-      2 * math.pi,
-  ], dtype=np.float32)
-  return spaces.Box(low=lows, high=highs, dtype=np.float32)
+highs = np.array([
+    np.pi,    # Roll
+    np.pi/2,  # Pitch
+    np.pi,    # Yaw
+    1.0,      # Throttle
+    1000,     # Altitude (meters)
+    10000,     # Distance
+    np.pi,      # Yaw angle
+    np.pi/2,        # Pitch angle
+    2200,
+    250,
+    2 * math.pi,
+    2 * math.pi,
+    2 * math.pi,
+], dtype=np.float32)
 
 
 def unnormalize_observation(normalized_obs: np.ndarray) -> np.ndarray:
   """
   Reverts the normalization of an observation from [-1, 1] back to the original scale.
   """
-  lows = get_state_space().low
-  highs = get_state_space().high
-
   # Reverse min-max scaling: x = 0.5 * ((x_norm + 1) * (max - min)) + min
-  original_obs = 0.5 * ((normalized_obs + 1) * (highs - lows)) + lows
+  original_obs = 0.5 * (normalized_obs + 1) * (highs - lows) + lows
 
   return original_obs
 
@@ -140,7 +136,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation_first_train.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_1999968_steps.zip")
     
     obs = env.reset()
     log = []
@@ -151,14 +147,12 @@ if __name__ == "__main__":
     step_count = 0
     observations = []
     
-    while not done and step_count < 250:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
-        print(obs)
+    while not done and step_count < 500:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
-        #print(action)
-        #action = np.array([1,0,0,1])
         obs, reward, done, info = env.step(action)
         unnormalize_obs = unnormalize_observation(obs)
-        #print(obs)
+        print([round(val, 2) for val in unnormalize_obs])
+        print("")
         observations.append(list(unnormalize_obs))
         step_count += 1
         current_lat = env.sim[prp.lat_geod_deg]
