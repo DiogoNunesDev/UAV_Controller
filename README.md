@@ -27,7 +27,7 @@ The simulation environment is designed to provide realistic UAV dynamics while a
 
 ### Environment Features
 - Updated **gym-jsbsim** package to include an initial task of navigating from point A to B.
-- A **Target Point (Objective)** is generated at a distance of **500m** and an altitude of **300m**.
+- A **Target Point (Objective)** is generated at a distance between **4000m** and **4500m**,and an altitude of **300m**.
 - The agent receives inputs from aircraft sensors and outputs attitude changes.
 - The first goal is to get as close as possible to the **Objective** while maintaining altitude and reaching the target in the shortest time possible.
 
@@ -73,6 +73,6 @@ Below is the latest progress of our autonomous UAV controller:
 ## Future Directions
 Planned improvements include:
 - **Flight log file** to enable 3D visualization in popular tools like: https://www.flightcoach.org/ribbon/plotter.html
-- **Integration of Evolutionary Algorithms** for enhanced optimization.
+- **Creation of a unified autonomous control system** that integrates multiple reinforcement learning (RL)-based tasks, allowing the aircraft to perform complex maneuvers with a single click.
 - **Multi-Agent Coordination**: Enabling multiple UAVs to navigate collaboratively.
 - **Adaptive Learning**: Refining control policies based on real-time flight data.
