@@ -136,7 +136,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_599976_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_6899724_steps.zip")
     
     obs = env.reset()
     log = []
@@ -149,9 +149,9 @@ if __name__ == "__main__":
     
     while not done and step_count < 500:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
-        #print(action)
+
         obs, reward, done, info = env.step(action)
-        print(obs)
+        #print(obs)
         unnormalize_obs = unnormalize_observation(obs)
         print([round(val, 2) for val in unnormalize_obs])
         print("")
@@ -160,6 +160,9 @@ if __name__ == "__main__":
         current_lat = env.sim[prp.lat_geod_deg]
         current_lon = env.sim[prp.lng_geoc_deg]
         current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
+        throttle = env.sim[prp.throttle_cmd]
+        print(f"Throttle: {throttle}")
+        #observations.append(throttle)
         heading = unnormalize_obs[2]
         roll = unnormalize_obs[0]
         pitch = unnormalize_obs[1]
@@ -172,7 +175,7 @@ if __name__ == "__main__":
         "Roll (deg)", "Pitch (deg)", "Yaw (deg)", #"Throttle",
         "Altitude (m)", #"Distance to Target (m)",
         "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)", 
-        "Velocity X-Axis", "Altitude_change", "Pitch Rate [rad/s]", "Yaw Rate [rad/s]", "Roll Rate [rad/s]",
+        "Velocity X-Axis", "Altitude_change", "Pitch Rate [deg/s]", "Yaw Rate [deg/s]", "Roll Rate [deg/s]",
     ]
     
     df_obs = pd.DataFrame(observations, columns=obs_labels)
@@ -182,6 +185,10 @@ if __name__ == "__main__":
     df_obs["Yaw (deg)"] = np.degrees(df_obs["Yaw (deg)"])
     df_obs["Yaw Angle to Target (deg)"] = np.degrees(df_obs["Yaw Angle to Target (deg)"])
     df_obs["Pitch Angle to Target (deg)"] = np.degrees(df_obs["Pitch Angle to Target (deg)"])
+    df_obs["Pitch Rate [deg/s]"] = np.degrees(df_obs["Pitch Rate [deg/s]"])
+    df_obs["Yaw Rate [deg/s]"] = np.degrees(df_obs["Yaw Rate [deg/s]"])
+    df_obs["Roll Rate [deg/s]"] = np.degrees(df_obs["Roll Rate [deg/s]"])
+
     
     save_csv(df_obs)
     

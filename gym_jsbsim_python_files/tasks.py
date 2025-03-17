@@ -494,7 +494,7 @@ class NavigationTask(FlightTask):
         crashed = current_altitude <= 100
         unnormalized_observations = self.unnormalize_observation(observation)
         #distance_to_target = unnormalized_observations[5]
-        distance_to_target = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], self.target_alt)
+        distance_to_target = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
         heading_to_target = unnormalized_observations[4]
         #print(f"Heading to target: {heading_to_target}")
         reward = self.setReward(distance_to_target, crashed, altitude_deviation, heading_to_target)
@@ -520,7 +520,7 @@ class NavigationTask(FlightTask):
             prp.initial_terrain_altitude_ft: 0,        
             prp.engine_running: 1,                      
             prp.throttle_cmd: 1,                      
-            prp.initial_u_fps: 100,
+            prp.initial_u_fps: 150,
             prp.initial_p_radps: 0,
             prp.initial_q_radps: 0,
             prp.initial_r_radps: 0,
@@ -571,9 +571,9 @@ class NavigationTask(FlightTask):
         throttle = sim[prp.throttle_cmd] # [0, 1]
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048  # Altitude (AGL) from feet to meters
          
-        distance = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], self.target_alt)
+        distance = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
         yaw_angle_to_target = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_yaw)
-        pitch_angle_to_target = self.calculate_pitch_angle(current_altitude)
+        pitch_angle_to_target = self.calculate_pitch_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_altitude)
         
         u_vel = sim[prp.u_fps]
         altitude_rate = sim[prp.altitude_rate_fps] 
@@ -615,8 +615,8 @@ class NavigationTask(FlightTask):
         
         return observation
 
-    def calculate_distance(self, lat1: float, lon1: float, alt1: float) -> float:
-        lat2, lon2, alt2 = self.target_lat, self.target_lon, self.target_alt
+    def calculate_distance(self, lat1: float, lon1: float) -> float:
+        lat2, lon2 = self.target_lat, self.target_lon
         lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
         lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
 
@@ -624,25 +624,24 @@ class NavigationTask(FlightTask):
         dlon = lon2_rad - lon1_rad
         a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        horizontal_distance = 6371000 * c
+        horizontal_distance = 6371000 * c  # Earth's radius in meters
 
-        vertical_distance = abs(alt2 - alt1)
-        return math.sqrt(horizontal_distance ** 2 + vertical_distance ** 2)
+        return horizontal_distance
 
     def calculate_yaw_angle(self, lat1: float, lon1: float, heading: float) -> float:
         lat2, lon2 = self.target_lat, self.target_lon
-        
+                
         delta_lon = math.radians(lon2 - lon1)
         lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
 
-        #Bearing from the aircraft to the target
+        # Bearing from the aircraft to the target
         x = math.sin(delta_lon) * math.cos(lat2_rad)
         y = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(delta_lon)
         
         bearing = math.atan2(x, y)
         yaw_angle = bearing - heading
 
-        # -π and π
+        # Ensure yaw is in the range -π to π
         if yaw_angle > math.pi:
             yaw_angle -= 2 * math.pi
         elif yaw_angle < -math.pi:
@@ -650,9 +649,9 @@ class NavigationTask(FlightTask):
 
         return yaw_angle
 
-    def calculate_pitch_angle(self, alt1: float) -> float:
+    def calculate_pitch_angle(self, lat1: float, lon1: float, alt1: float) -> float:
         alt2 = self.target_alt
-        distance_horizontal = self.calculate_distance(self.target_lat, self.target_lon, alt1)
+        distance_horizontal = self.calculate_distance(lat1, lon1)
         return math.atan2(alt2 - alt1, distance_horizontal)
 
     def calculate_circle_point(self, lat, lon, radius, angle):
