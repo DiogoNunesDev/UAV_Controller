@@ -24,9 +24,9 @@ lows = np.array([
     -np.pi,   # Roll
     -np.pi/2, # Pitch
     -np.pi,   # Yaw (normalized to -π to π)
-    0.0,      # Throttle (0 to 1)
+    #0.0,      # Throttle (0 to 1)
     0.0,      # Altitude (meters)
-    0.0,      # Distance (meters)
+    #0.0,      # Distance (meters)
     -np.pi,     # Yaw angle (degrees)
     -np.pi/2,       # Pitch angle (degrees)
     -2200,
@@ -40,9 +40,9 @@ highs = np.array([
     np.pi,    # Roll
     np.pi/2,  # Pitch
     np.pi,    # Yaw
-    1.0,      # Throttle
+    #1.0,      # Throttle
     1000,     # Altitude (meters)
-    10000,     # Distance
+    #10000,     # Distance
     np.pi,      # Yaw angle
     np.pi/2,        # Pitch angle
     2200,
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_1999968_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_599976_steps.zip")
     
     obs = env.reset()
     log = []
@@ -149,7 +149,9 @@ if __name__ == "__main__":
     
     while not done and step_count < 500:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
+        #print(action)
         obs, reward, done, info = env.step(action)
+        print(obs)
         unnormalize_obs = unnormalize_observation(obs)
         print([round(val, 2) for val in unnormalize_obs])
         print("")
@@ -167,14 +169,14 @@ if __name__ == "__main__":
     gc.collect()
     
     obs_labels = [
-        "Roll (deg)", "Pitch (deg)", "Yaw (deg)", "Throttle",
-        "Altitude (m)", "Distance to Target (m)",
+        "Roll (deg)", "Pitch (deg)", "Yaw (deg)", #"Throttle",
+        "Altitude (m)", #"Distance to Target (m)",
         "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)", 
         "Velocity X-Axis", "Altitude_change", "Pitch Rate [rad/s]", "Yaw Rate [rad/s]", "Roll Rate [rad/s]",
     ]
     
     df_obs = pd.DataFrame(observations, columns=obs_labels)
-    df_obs["Throttle"] = df_obs["Throttle"] * 100
+    #df_obs["Throttle"] = df_obs["Throttle"] * 100
     df_obs["Roll (deg)"] = np.degrees(df_obs["Roll (deg)"])
     df_obs["Pitch (deg)"] = np.degrees(df_obs["Pitch (deg)"])
     df_obs["Yaw (deg)"] = np.degrees(df_obs["Yaw (deg)"])

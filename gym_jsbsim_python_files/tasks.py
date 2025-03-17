@@ -472,13 +472,10 @@ class NavigationTask(FlightTask):
     def setReward(self, distance, crashed, altitude_deviation, heading_to_target):
         """ Sets the reward"""
         
-        if altitude_deviation > 200:
-            altitude_deviation = 200  
-        
         heading_reward = 15.7 - abs(heading_to_target) * 5
         crash_penalty = -1000 if crashed else 0
         target_reward = (1 / (distance + 1)) * 1000
-        altitude_penalty = - (altitude_deviation/200)
+        altitude_penalty = - (altitude_deviation/50)
         reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
         return reward
     
@@ -496,8 +493,9 @@ class NavigationTask(FlightTask):
         altitude_deviation = abs(300 - current_altitude)
         crashed = current_altitude <= 100
         unnormalized_observations = self.unnormalize_observation(observation)
-        distance_to_target = unnormalized_observations[5]
-        heading_to_target = unnormalized_observations[6]
+        #distance_to_target = unnormalized_observations[5]
+        distance_to_target = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], self.target_alt)
+        heading_to_target = unnormalized_observations[4]
         #print(f"Heading to target: {heading_to_target}")
         reward = self.setReward(distance_to_target, crashed, altitude_deviation, heading_to_target)
         #print(f"Reward: {reward}")
@@ -587,9 +585,9 @@ class NavigationTask(FlightTask):
             current_roll,
             current_pitch,
             current_yaw,
-            throttle,
+            #throttle,
             current_altitude,
-            distance,
+            #distance,
             yaw_angle_to_target,
             pitch_angle_to_target,
             u_vel,
@@ -734,9 +732,9 @@ class NavigationTask(FlightTask):
             -np.pi,   # Roll
             -np.pi/2, # Pitch
             -np.pi,   # Yaw (normalized to -π to π)
-            0.0,      # Throttle (0 to 1)
+            #0.0,      # Throttle (0 to 1)
             0.0,      # Altitude (meters)
-            0.0,      # Distance (meters)
+            #0.0,      # Distance (meters)
             -np.pi,     # Yaw angle (degrees)
             -np.pi/2,       # Pitch angle (degrees)
             -2200,
@@ -750,9 +748,9 @@ class NavigationTask(FlightTask):
             np.pi,    # Roll
             np.pi/2,  # Pitch
             np.pi,    # Yaw
-            1.0,      # Throttle
+            #1.0,      # Throttle
             1000,     # Altitude (meters)
-            10000,     # Distance
+            #10000,     # Distance
             np.pi,      # Yaw angle
             np.pi/2,        # Pitch angle
             2200,
