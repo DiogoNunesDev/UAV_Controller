@@ -130,7 +130,7 @@ def plot_moving_trajectory(data, target, initial_lat, initial_lon, episode_num):
         ax.text(x - window_size / 2 + 20, y + window_size / 2 - 35, f"Altitude: {point['altitude']}", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
         #ax.text(x - window_size / 2 + 20, y + window_size / 2 - 50, f"Heading: {point['heading']}°", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
         
-        plt.pause(0.05)  # Animation speed
+        plt.pause(0.01)  # Animation speed
     
     final_lat, final_lon = data[-1]['latitude'], data[-1]['longitude']
     distance_to_target = haversine(final_lat, final_lon, target[0], target[1])

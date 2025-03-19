@@ -43,11 +43,30 @@ elevator = BoundedProperty('fcs/elevator-pos-norm', 'elevator position, normalis
 rudder = BoundedProperty('fcs/rudder-pos-norm', 'rudder position, normalised', -1, 1)
 throttle = BoundedProperty('fcs/throttle-pos-norm', 'throttle position, normalised', 0, 1)
 gear = BoundedProperty('gear/gear-pos-norm', 'landing gear position, normalised', 0, 1)
+flaps = BoundedProperty('fcs/flap-pos-norm', 'flap position, normalized', 0, 1)
 
-# engines
+
+# --- Engine Parameters ---
 engine_running = Property('propulsion/engine/set-running', 'engine running (0/1 bool)')
 all_engine_running = Property('propulsion/set-running', 'set engine running (-1 for all engines)')
 engine_thrust_lbs = Property('propulsion/engine/thrust-lbs', 'engine thrust [lb]')
+engine_rpm = Property('propulsion/engine/rpm', 'engine RPM')
+fuel_flow_lbs_sec = Property('propulsion/engine/fuel-flow-lbs_sec', 'fuel flow [lbs/sec]')
+propeller_rpm = Property('propulsion/engine/prop-rpm', 'propeller RPM')
+engine_ignition = Property('propulsion/engine/ignition', 'Engine ignition switch (0/1)')
+engine_magnetos = Property('propulsion/magneto_cmd', 'Engine magnetos switch (0 = off, 3 = both)')
+engine_starter = Property('propulsion/starter_cmd', 'Engine starter (0/1)')
+engine_cutoff = Property('propulsion/engine/cutoff_cmd', 'Engine fuel cutoff (0 = ON, 1 = OFF)')
+
+# --- Fuel System ---
+fuel_tank_left = Property('propulsion/tank[0]/contents-lbs', 'Fuel left tank [lbs]')
+fuel_tank_right = Property('propulsion/tank[1]/contents-lbs', 'Fuel right tank [lbs]')
+fuel_total = Property('propulsion/tank/total-fuel-lbs', 'Total fuel on board [lbs]')
+
+# --- Electrical System ---
+battery_on = Property('electrical/battery-on', 'Battery switch state (0/1)')
+alternator_on = Property('electrical/alternator-on', 'Alternator switch state (0/1)')
+bus_voltage = Property('electrical/bus-voltage', 'Main electrical bus voltage [V]')
 
 # controls command
 aileron_cmd = BoundedProperty('fcs/aileron-cmd-norm', 'aileron commanded position, normalised', -1., 1.)

@@ -469,14 +469,23 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
-    def setReward(self, distance, crashed, altitude_deviation, heading_to_target):
+    def setReward(self, crashed, altitude_deviation, heading_to_target, forward_vel):
         """ Sets the reward"""
-        
+
+        u_vel_penalty = 0
+        if forward_vel < 100:
+            u_vel_penalty = - 100 / (forward_vel +1)
+
+
         heading_reward = 15.7 - abs(heading_to_target) * 5
         crash_penalty = -1000 if crashed else 0
-        target_reward = (1 / (distance + 1)) * 1000
+        #target_reward = (1 / (distance + 1)) * 1000
         altitude_penalty = - (altitude_deviation/50)
-        reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
+        #reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
+        reward = heading_reward + crash_penalty + altitude_penalty + u_vel_penalty 
+        
+        #print(f"Crash: {crashed}, Altitude Deviation: {altitude_deviation}, Heading Target: {heading_to_target}, U_Vel: {forward_vel}")
+        #print(f"U_Vel: {u_vel_penalty}, Altitude_pen: {altitude_penalty}, Heading Reward: {heading_reward}, Total: {reward}")
         return reward
     
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple[NamedTuple, float, bool, Dict]:
@@ -497,7 +506,9 @@ class NavigationTask(FlightTask):
         distance_to_target = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
         heading_to_target = unnormalized_observations[4]
         #print(f"Heading to target: {heading_to_target}")
-        reward = self.setReward(distance_to_target, crashed, altitude_deviation, heading_to_target)
+        engine_bool = sim[prp.engine_running]
+        #print(f"Engine: {engine_bool}")
+        reward = self.setReward(crashed, altitude_deviation, heading_to_target, unnormalized_observations[6])
         #print(f"Reward: {reward}")
         
         done = self._is_terminal(sim, distance_to_target, current_altitude, observation)
@@ -517,9 +528,31 @@ class NavigationTask(FlightTask):
             prp.initial_altitude_ft: 1000,     # ~= 300 meters          
             prp.initial_latitude_geod_deg: 37.6190,     
             prp.initial_longitude_geoc_deg: -122.3750,  
-            prp.initial_terrain_altitude_ft: 0,        
-            prp.engine_running: 1,                      
-            prp.throttle_cmd: 1,                      
+            prp.initial_terrain_altitude_ft: 0,   
+
+            # Engine Start Configuration
+            prp.mixture_cmd: 1,   # Full rich mixture
+            prp.engine_running: 1,  # Engine ON
+            prp.throttle_cmd: 1,       
+            prp.engine_ignition: 1,  # Ensure ignition is ON
+            prp.engine_magnetos: 3,  # Set magnetos to BOTH (1 = Left, 2 = Right, 3 = Both)
+            prp.propeller_rpm: 2500, # Ensure the propeller is running at cruise RPM
+            prp.engine_thrust_lbs: 250,  # Set initial thrust
+            prp.engine_cutoff: 0,
+            prp.engine_starter: 1,
+   
+
+            prp.flaps: 0,  # Flaps retracted
+            prp.gear: 0,  # Gear retracted
+
+            # Electrical System
+            prp.battery_on: 1,  # Battery ON
+            prp.alternator_on: 1,  # Alternator ON
+
+            # Fuel Levels
+            prp.fuel_tank_left: 100,  # Fuel left tank
+            prp.fuel_tank_right: 100,  # Fuel right tank
+
             prp.initial_u_fps: 150,
             prp.initial_p_radps: 0,
             prp.initial_q_radps: 0,

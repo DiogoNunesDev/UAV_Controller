@@ -11,6 +11,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 import pandas as pd
 import matplotlib.pyplot as plt
 from gym import spaces
+import time
 
 STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
 EPISODE_TIME_S = 10  # Total episode duration in seconds
@@ -136,7 +137,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_6899724_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_999960_steps.zip")
     
     obs = env.reset()
     log = []
@@ -146,15 +147,15 @@ if __name__ == "__main__":
     done = False
     step_count = 0
     observations = []
-    
-    while not done and step_count < 500:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
+    while not done and step_count < 1000:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
-
+        #action[3] = 1.0
         obs, reward, done, info = env.step(action)
-        #print(obs)
+        #print(f"Reward: {reward}")
         unnormalize_obs = unnormalize_observation(obs)
         print([round(val, 2) for val in unnormalize_obs])
         print("")
+        print(f"Engine: {env.sim[prp.engine_running]}")
         observations.append(list(unnormalize_obs))
         step_count += 1
         current_lat = env.sim[prp.lat_geod_deg]
