@@ -469,18 +469,23 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
-    def setReward(self, crashed, altitude_deviation, heading_to_target, forward_vel):
+    def setReward(self, crashed, altitude, heading_to_target, forward_vel):
         """ Sets the reward"""
 
         u_vel_penalty = 0
         if forward_vel < 100:
             u_vel_penalty = - 100 / (forward_vel +1)
+            
+        altitude_penalty = 0
+        if altitude < 250:
+            altitude_deviation = abs(300 - altitude)
+            altitude_penalty = - (altitude_deviation/50)
 
 
         heading_reward = 15.7 - abs(heading_to_target) * 5
         crash_penalty = -1000 if crashed else 0
         #target_reward = (1 / (distance + 1)) * 1000
-        altitude_penalty = - (altitude_deviation/50)
+        
         #reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
         reward = heading_reward + crash_penalty + altitude_penalty + u_vel_penalty 
         
@@ -499,7 +504,7 @@ class NavigationTask(FlightTask):
         observation = self.observe_first_state(sim)
         self.n_steps += 1
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048
-        altitude_deviation = abs(300 - current_altitude)
+        #altitude_deviation = abs(300 - current_altitude)
         crashed = current_altitude <= 100
         unnormalized_observations = self.unnormalize_observation(observation)
         #distance_to_target = unnormalized_observations[5]
@@ -508,7 +513,7 @@ class NavigationTask(FlightTask):
         #print(f"Heading to target: {heading_to_target}")
         engine_bool = sim[prp.engine_running]
         #print(f"Engine: {engine_bool}")
-        reward = self.setReward(crashed, altitude_deviation, heading_to_target, unnormalized_observations[6])
+        reward = self.setReward(crashed, current_altitude, heading_to_target, unnormalized_observations[6])
         #print(f"Reward: {reward}")
         
         done = self._is_terminal(sim, distance_to_target, current_altitude, observation)
@@ -522,8 +527,7 @@ class NavigationTask(FlightTask):
         return observation, reward, done, info
 
     def get_initial_conditions(self) -> Dict[Property, float]:
-        # Reset target point at the start of each episode
-        #self.reset_target_point(start_lat=37.6190, start_lon=-122.3750, radius=250)
+
         initial_conditions = {
             prp.initial_altitude_ft: 1000,     # ~= 300 meters          
             prp.initial_latitude_geod_deg: 37.6190,     
@@ -674,7 +678,7 @@ class NavigationTask(FlightTask):
         bearing = math.atan2(x, y)
         yaw_angle = bearing - heading
 
-        # Ensure yaw is in the range -π to π
+        # Ensuring yaw is in the range -π to π
         if yaw_angle > math.pi:
             yaw_angle -= 2 * math.pi
         elif yaw_angle < -math.pi:

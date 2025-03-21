@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 from gym import spaces
 import time
 
-STEP_FREQUENCY_HZ = 5  # Frequency at which actions are sent
-EPISODE_TIME_S = 10  # Total episode duration in seconds
+STEP_FREQUENCY_HZ = 60  # Frequency at which actions are sent
+EPISODE_TIME_S = 240  # Total episode duration in seconds
 EARTH_RADIUS = 6371000  # Earth radius in meters
 CIRCLE_RADIUS = 4500     # Circle radius in meters
 START_LAT = 37.619
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_239999904_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_24239999904_steps.zip")
     
     obs = env.reset()
     log = []
@@ -147,14 +147,18 @@ if __name__ == "__main__":
     done = False
     step_count = 0
     observations = []
-    while not done and step_count < 1000:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
+    throttle_values = []
+    while not done and step_count < 10000:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
         #action[3] = 1.0
+        
         obs, reward, done, info = env.step(action)
         #print(f"Reward: {reward}")
+        #print(action)
+        #print(_states)
         unnormalize_obs = unnormalize_observation(obs)
-        print([round(val, 2) for val in unnormalize_obs])
-        print("")
+        #print([round(val, 2) for val in unnormalize_obs])
+        #print("")
         print(f"Engine: {env.sim[prp.engine_running]}")
         observations.append(list(unnormalize_obs))
         step_count += 1
@@ -162,12 +166,15 @@ if __name__ == "__main__":
         current_lon = env.sim[prp.lng_geoc_deg]
         current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
         throttle = env.sim[prp.throttle_cmd]
+        throttle_values.append(throttle)
+        #print(f"Predicted Throttle: {action[3]}")
         print(f"Throttle: {throttle}")
         #observations.append(throttle)
         heading = unnormalize_obs[2]
         roll = unnormalize_obs[0]
         pitch = unnormalize_obs[1]
-        log.append(f"{step_count}\t{current_lat}\t{current_lon}\t{current_alt}\t{heading}\t{roll}\t{pitch}")
+        if step_count % 10 == 0:
+            log.append(f"{step_count}\t{current_lat}\t{current_lon}\t{current_alt}\t{heading}\t{roll}\t{pitch}")
     
     save_logs(log)
     gc.collect()
@@ -200,6 +207,16 @@ if __name__ == "__main__":
     plt.xlabel("Timestep")
     plt.ylabel("Value")
     plt.title("PPO Observations Over Time (Angles in Degrees)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    
+    plt.figure(figsize=(12, 8))
+    plt.plot(np.array(throttle_values), label="Throttle")
+    
+    plt.xlabel("Timestep")
+    plt.ylabel("Value")
+    plt.title("Throttle")
     plt.legend()
     plt.grid(True)
     plt.show()
