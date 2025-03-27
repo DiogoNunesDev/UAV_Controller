@@ -429,6 +429,8 @@ class NavigationTask(FlightTask):
         # Initialize target coordinates and other variables
         self.target_lat = target_point[0]
         self.target_lon = target_point[1]
+        self.initial_lat = 37.6190
+        self.initial_lon = -122.3750
         self.target_alt = 300
         self.max_time_s = 240
         episode_steps = math.ceil(self.max_time_s * step_frequency_hz)
@@ -516,6 +518,10 @@ class NavigationTask(FlightTask):
         reward = self.setReward(crashed, current_altitude, heading_to_target, unnormalized_observations[6])
         #print(f"Reward: {reward}")
         
+        if distance_to_target < 20.0:
+            reward = 1000
+            self.reset_target_point(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
+        
         done = self._is_terminal(sim, distance_to_target, current_altitude, observation)
 
         # Info dictionary
@@ -536,16 +542,16 @@ class NavigationTask(FlightTask):
 
             # Engine Start Configuration
             prp.mixture_cmd: 1,   # Full rich mixture
-            prp.engine_running: 1,  # Engine ON
             prp.throttle_cmd: 1,       
-            prp.engine_ignition: 1,  # Ensure ignition is ON
+            prp.engine_ignition: 1,  # Ignition ON
             prp.engine_magnetos: 3,  # Set magnetos to BOTH (1 = Left, 2 = Right, 3 = Both)
-            prp.propeller_rpm: 2500, # Ensure the propeller is running at cruise RPM
-            prp.engine_thrust_lbs: 250,  # Set initial thrust
+            prp.propeller_rpm: 2500, # Propeller running at cruise RPM
+            prp.engine_thrust_lbs: 250,  # Initial thrust
             prp.engine_cutoff: 0,
             prp.engine_starter: 1,
-   
+            prp.engine_running: 1,  # Engine ON
 
+   
             prp.flaps: 0,  # Flaps retracted
             prp.gear: 0,  # Gear retracted
 
@@ -564,37 +570,6 @@ class NavigationTask(FlightTask):
         }
         return initial_conditions
 
-    def unnormalize_observation(self, normalized_obs: np.ndarray) -> np.ndarray:
-        """
-        Reverts the normalization of an observation from [-1, 1] back to the original scale.
-        """
-        lows = self.get_state_space().low
-        highs = self.get_state_space().high
-
-        # Reverse min-max scaling: x = 0.5 * ((x_norm + 1) * (max - min)) + min
-        original_obs = 0.5 * ((normalized_obs + 1) * (highs - lows)) + lows
-
-        return original_obs
-
-    def normalize_yaw(self, yaw):
-        while yaw > math.pi:
-            yaw -= 2 * math.pi
-        while yaw < -math.pi:
-            yaw += 2 * math.pi
-        return yaw
-
-    def normalize_observation(self, observation: np.ndarray) -> np.ndarray:
-        """
-        Normalizes each feature of the observation to be within [-1,1].
-        """
-        lows = self.get_state_space().low
-        highs = self.get_state_space().high
-
-        # Min-max normalization formula: x_norm = (x - min) / (max - min)
-        normalized_obs = 2 * (observation - lows) / (highs - lows) - 1
-
-        return normalized_obs
-
     def observe_first_state(self, sim: Simulation) -> np.ndarray:
         """
         Extracts the current observation for the episode.
@@ -607,6 +582,7 @@ class NavigationTask(FlightTask):
         
         throttle = sim[prp.throttle_cmd] # [0, 1]
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048  # Altitude (AGL) from feet to meters
+        altitude_deviation = current_altitude - self.target_alt
          
         distance = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
         yaw_angle_to_target = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_yaw)
@@ -623,7 +599,8 @@ class NavigationTask(FlightTask):
             current_pitch,
             current_yaw,
             #throttle,
-            current_altitude,
+            #current_altitude,
+            altitude_deviation, 
             #distance,
             yaw_angle_to_target,
             pitch_angle_to_target,
@@ -652,6 +629,106 @@ class NavigationTask(FlightTask):
         
         return observation
 
+    def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float, observation: list) -> bool:
+        """Determines if the episode should end based on distance to target or altitude."""
+                        
+        if current_altitude <= 100.0 or current_altitude >= 599.0 or distance_to_target >= 9950:
+            return True
+                
+        return False
+
+    def _reward_terminal_override(self, reward: float, sim: Simulation, distance_to_target: float, current_altitude: float) -> float:
+        """Overrides the reward if terminal conditions are met, adding a bonus for reaching target or penalty for crashing or going over the altitude limit."""
+        if distance_to_target < 20.0:
+            reward += 100  
+        elif current_altitude < 100:
+            reward -= 100  
+        elif 290 < current_altitude < 310:
+             reward += 50
+        
+
+        return reward
+    
+    def get_props_to_output(self) -> Tuple:
+        
+        return (
+            prp.u_fps,                 # Forward velocity (x-axis) in feet per second
+            prp.altitude_sl_ft,        # Altitude above sea level in feet
+            prp.roll_rad,              # Roll angle in radians
+            prp.pitch_rad,             # Pitch angle in radians
+            prp.heading_deg,           # Heading/Yaw angle in degrees
+            prp.sideslip_deg,          # Sideslip angle in degrees
+            prp.throttle_cmd,          # Throttle command (0 to 1 normalized)
+        )
+
+    def get_state_space(self):
+        lows = np.array([
+            -np.pi,   # Roll
+            -np.pi/2, # Pitch
+            -np.pi,   # Yaw (normalized to -π to π)
+            #0.0,      # Throttle (0 to 1)
+            -210,      # Altitude Deviation (meters)
+            #0.0,      # Distance (meters)
+            -np.pi,     # Yaw angle (degrees)
+            -np.pi/2,       # Pitch angle (degrees)
+            -2200,
+            -250,
+            -2 * math.pi, 
+            -2 * math.pi,
+            -2 * math.pi,
+        ], dtype=np.float32)
+
+        highs = np.array([
+            np.pi,    # Roll
+            np.pi/2,  # Pitch
+            np.pi,    # Yaw
+            #1.0,      # Throttle
+            300,     # Altitude Deviation (meters)
+            #10000,     # Distance
+            np.pi,      # Yaw angle
+            np.pi/2,        # Pitch angle
+            2200,
+            250,
+            2 * math.pi,
+            2 * math.pi,
+            2 * math.pi,
+        ], dtype=np.float32)
+        return spaces.Box(low=lows, high=highs, dtype=np.float32)
+
+
+    """ Auxiliar Functions"""
+    
+    def normalize_yaw(self, yaw):
+        while yaw > math.pi:
+            yaw -= 2 * math.pi
+        while yaw < -math.pi:
+            yaw += 2 * math.pi
+        return yaw
+
+    def normalize_observation(self, observation: np.ndarray) -> np.ndarray:
+        """
+        Normalizes each feature of the observation to be within [-1,1].
+        """
+        lows = self.get_state_space().low
+        highs = self.get_state_space().high
+
+        # Min-max normalization formula: x_norm = (x - min) / (max - min)
+        normalized_obs = 2 * (observation - lows) / (highs - lows) - 1
+
+        return normalized_obs
+    
+    def unnormalize_observation(self, normalized_obs: np.ndarray) -> np.ndarray:
+        """
+        Reverts the normalization of an observation from [-1, 1] back to the original scale.
+        """
+        lows = self.get_state_space().low
+        highs = self.get_state_space().high
+
+        # Reverse min-max scaling: x = 0.5 * ((x_norm + 1) * (max - min)) + min
+        original_obs = 0.5 * ((normalized_obs + 1) * (highs - lows)) + lows
+
+        return original_obs
+    
     def calculate_distance(self, lat1: float, lon1: float) -> float:
         lat2, lon2 = self.target_lat, self.target_lon
         lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
@@ -691,6 +768,9 @@ class NavigationTask(FlightTask):
         distance_horizontal = self.calculate_distance(lat1, lon1)
         return math.atan2(alt2 - alt1, distance_horizontal)
 
+
+    """Target Point Functions"""
+
     def calculate_circle_point(self, lat, lon, radius, angle):
         """
         This function calculates a point on the surface of the Earth given a 
@@ -721,79 +801,12 @@ class NavigationTask(FlightTask):
         """
         angles = self.generate_equally_spaced_target_points(n)
         return [self.calculate_circle_point(start_lat, start_lon, radius, angle) for angle in angles]
-
-    def reset_target_point(self):
+    
+    def reset_target_point(self, initial_lat, initial_lon):
         """
         Randomly selects a target point from a generated circle of points.
         """
         CIRCLE_RADIUS = random.randint(4000, 4500)
-        target_points = self.create_target_points(start_lat=37.6190, start_lon=-122.3750, radius=CIRCLE_RADIUS, n=30)
+        target_points = self.create_target_points(initial_lat, initial_lon, CIRCLE_RADIUS, 30)
         self.target_point = random.choice(target_points)
         self.target_lat, self.target_lon = self.target_point
-
-    def _is_terminal(self, sim: Simulation, distance_to_target: float, current_altitude: float, observation: list) -> bool:
-        """Determines if the episode should end based on distance to target or altitude."""
-                        
-        if distance_to_target < 20.0 or current_altitude < 100.0 or distance_to_target > 9950:
-            return True
-                
-        return False
-
-    def _reward_terminal_override(self, reward: float, sim: Simulation, distance_to_target: float, current_altitude: float) -> float:
-        """Overrides the reward if terminal conditions are met, adding a bonus for reaching target or penalty for crashing or going over the altitude limit."""
-        if distance_to_target < 20.0:
-            reward += 100  
-        elif current_altitude < 100:
-            reward -= 100  
-        elif 290 < current_altitude < 310:
-             reward += 50
-        
-
-        return reward
-    
-    def get_props_to_output(self) -> Tuple:
-        
-        return (
-            prp.u_fps,                 # Forward velocity (x-axis) in feet per second
-            prp.altitude_sl_ft,        # Altitude above sea level in feet
-            prp.roll_rad,              # Roll angle in radians
-            prp.pitch_rad,             # Pitch angle in radians
-            prp.heading_deg,           # Heading/Yaw angle in degrees
-            prp.sideslip_deg,          # Sideslip angle in degrees
-            prp.throttle_cmd,          # Throttle command (0 to 1 normalized)
-        )
-
-    def get_state_space(self):
-        lows = np.array([
-            -np.pi,   # Roll
-            -np.pi/2, # Pitch
-            -np.pi,   # Yaw (normalized to -π to π)
-            #0.0,      # Throttle (0 to 1)
-            0.0,      # Altitude (meters)
-            #0.0,      # Distance (meters)
-            -np.pi,     # Yaw angle (degrees)
-            -np.pi/2,       # Pitch angle (degrees)
-            -2200,
-            -250,
-            -2 * math.pi, 
-            -2 * math.pi,
-            -2 * math.pi,
-        ], dtype=np.float32)
-
-        highs = np.array([
-            np.pi,    # Roll
-            np.pi/2,  # Pitch
-            np.pi,    # Yaw
-            #1.0,      # Throttle
-            1000,     # Altitude (meters)
-            #10000,     # Distance
-            np.pi,      # Yaw angle
-            np.pi/2,        # Pitch angle
-            2200,
-            250,
-            2 * math.pi,
-            2 * math.pi,
-            2 * math.pi,
-        ], dtype=np.float32)
-        return spaces.Box(low=lows, high=highs, dtype=np.float32)
-

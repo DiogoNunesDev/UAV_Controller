@@ -26,7 +26,7 @@ lows = np.array([
     -np.pi/2, # Pitch
     -np.pi,   # Yaw (normalized to -π to π)
     #0.0,      # Throttle (0 to 1)
-    0.0,      # Altitude (meters)
+    -205,      # Altitude Deviation (meters)
     #0.0,      # Distance (meters)
     -np.pi,     # Yaw angle (degrees)
     -np.pi/2,       # Pitch angle (degrees)
@@ -42,7 +42,7 @@ highs = np.array([
     np.pi/2,  # Pitch
     np.pi,    # Yaw
     #1.0,      # Throttle
-    1000,     # Altitude (meters)
+    300,     # Altitude Deviation(meters)
     #10000,     # Distance
     np.pi,      # Yaw angle
     np.pi/2,        # Pitch angle
@@ -118,12 +118,10 @@ def create_target_points(start_lat, start_lon, radius=CIRCLE_RADIUS, n=5):
   
   return target_points
 
-
 def save_logs(log):
     with open("../../txt_files/ppo_log.txt", "w") as log_file:
         for step_log in log:
             log_file.write(step_log + "\n")
-
 
 def save_csv(df, filename="ppo_observations.csv"):
     """Saves the observation DataFrame to a CSV file."""
@@ -137,7 +135,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_424999932_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_16749732_steps.zip")
     
     obs = env.reset()
     log = []
@@ -148,6 +146,7 @@ if __name__ == "__main__":
     step_count = 0
     observations = []
     throttle_values = []
+    altitude_values = []
     while not done and step_count < 10000:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
         #action[3] = 1.0
@@ -165,6 +164,7 @@ if __name__ == "__main__":
         current_lat = env.sim[prp.lat_geod_deg]
         current_lon = env.sim[prp.lng_geoc_deg]
         current_alt = env.sim[prp.altitude_agl_ft] * 0.3048
+        altitude_values.append([current_alt, unnormalize_obs[3]])
         throttle = env.sim[prp.throttle_cmd]
         throttle_values.append(throttle)
         #print(f"Predicted Throttle: {action[3]}")
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     
     obs_labels = [
         "Roll (deg)", "Pitch (deg)", "Yaw (deg)", #"Throttle",
-        "Altitude (m)", #"Distance to Target (m)",
+        "Altitude Deviation (m)", #"Distance to Target (m)",
         "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)", 
         "Velocity X-Axis", "Altitude_change", "Pitch Rate [deg/s]", "Yaw Rate [deg/s]", "Roll Rate [deg/s]",
     ]
@@ -207,6 +207,18 @@ if __name__ == "__main__":
     plt.xlabel("Timestep")
     plt.ylabel("Value")
     plt.title("PPO Observations Over Time (Angles in Degrees)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    
+    altitude_array = np.array(altitude_values)
+
+    plt.figure(figsize=(12, 8))
+    plt.plot(altitude_array[:, 0], label="Altitude")
+    plt.plot(altitude_array[:, 1], label="Altitude Deviation")
+    plt.xlabel("Timestep")
+    plt.ylabel("Value")
+    plt.title("Altitude & ALtitude Deviation")
     plt.legend()
     plt.grid(True)
     plt.show()
