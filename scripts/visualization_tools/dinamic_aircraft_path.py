@@ -59,7 +59,8 @@ def parse_segment(segment):
                     'latitude': float(parts[1]),
                     'longitude': float(parts[2]),
                     'altitude': float(parts[3]),
-                    'heading': float(parts[4])
+                    'heading': float(parts[4]),
+                    'roll': float(parts[5])
                 })
     return data, (target_lat, target_lon, target_alt)
 
@@ -123,6 +124,7 @@ def plot_moving_trajectory(data, target, initial_lat, initial_lon, episode_num):
         ax.text(x - window_size / 2 + 20, y + window_size / 2 - 20, f"Step: {point['step']}", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
         ax.text(x - window_size / 2 + 20, y + window_size / 2 - 35, f"Altitude: {point['altitude']:.2f}", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
         ax.text(x - window_size / 2 + 20, y + window_size / 2 - 50, f"Heading: {math.degrees(point['heading']):.2f}°", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
+        ax.text(x - window_size / 2 + 20, y + window_size / 2 - 65, f"Roll: {math.degrees(point['roll']):.2f}°", fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
 
         if i == 0:
             ax.plot([], [], color='blue', label='Airplane Heading')

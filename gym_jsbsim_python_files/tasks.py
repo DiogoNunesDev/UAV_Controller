@@ -471,12 +471,16 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
-    def setReward(self, crashed, altitude, heading_to_target, forward_vel):
+    def setReward(self, crashed, altitude, heading_to_target, forward_vel, roll):
         """ Sets the reward"""
 
         u_vel_penalty = 0
         if forward_vel < 100:
             u_vel_penalty = - 100 / (forward_vel +1)
+
+        roll_penalty = 0
+        if abs(roll) > math.pi / 4:
+            roll_penalty = -2
             
         altitude_penalty = 0
         if altitude < 250:
@@ -489,7 +493,7 @@ class NavigationTask(FlightTask):
         #target_reward = (1 / (distance + 1)) * 1000
         
         #reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
-        reward = heading_reward + crash_penalty + altitude_penalty + u_vel_penalty 
+        reward = heading_reward + crash_penalty + altitude_penalty + u_vel_penalty + roll_penalty
         
         #print(f"Crash: {crashed}, Altitude Deviation: {altitude_deviation}, Heading Target: {heading_to_target}, U_Vel: {forward_vel}")
         #print(f"U_Vel: {u_vel_penalty}, Altitude_pen: {altitude_penalty}, Heading Reward: {heading_reward}, Total: {reward}")
@@ -515,12 +519,13 @@ class NavigationTask(FlightTask):
         #print(f"Heading to target: {heading_to_target}")
         engine_bool = sim[prp.engine_running]
         #print(f"Engine: {engine_bool}")
-        reward = self.setReward(crashed, current_altitude, heading_to_target, unnormalized_observations[6])
+        reward = self.setReward(crashed, current_altitude, heading_to_target, unnormalized_observations[6], unnormalized_observations[0])
         #print(f"Reward: {reward}")
         
         if distance_to_target < 20.0:
             reward = 1000
             self.reset_target_point(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
+            #print("Reached the Target Point")
         
         done = self._is_terminal(sim, distance_to_target, current_altitude, observation)
 
@@ -667,7 +672,7 @@ class NavigationTask(FlightTask):
             -np.pi/2, # Pitch
             -np.pi,   # Yaw (normalized to -π to π)
             #0.0,      # Throttle (0 to 1)
-            -210,      # Altitude Deviation (meters)
+            -205,      # Altitude Deviation (meters)
             #0.0,      # Distance (meters)
             -np.pi,     # Yaw angle (degrees)
             -np.pi/2,       # Pitch angle (degrees)
@@ -683,7 +688,7 @@ class NavigationTask(FlightTask):
             np.pi/2,  # Pitch
             np.pi,    # Yaw
             #1.0,      # Throttle
-            300,     # Altitude Deviation (meters)
+            305,     # Altitude Deviation (meters)
             #10000,     # Distance
             np.pi,      # Yaw angle
             np.pi/2,        # Pitch angle

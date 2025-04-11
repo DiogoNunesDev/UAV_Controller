@@ -42,7 +42,7 @@ highs = np.array([
     np.pi/2,  # Pitch
     np.pi,    # Yaw
     #1.0,      # Throttle
-    300,     # Altitude Deviation(meters)
+    305,     # Altitude Deviation(meters)
     #10000,     # Distance
     np.pi,      # Yaw angle
     np.pi/2,        # Pitch angle
@@ -130,12 +130,12 @@ def save_csv(df, filename="ppo_observations.csv"):
 
 
 if __name__ == "__main__":
-    target_points = create_target_points(START_LAT, START_LON, n=30)
+    target_points = create_target_points(START_LAT, START_LON, n=3)
     target_point = random.choice(target_points)
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_16749732_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_224999964_steps.zip")
     
     obs = env.reset()
     log = []
@@ -147,13 +147,16 @@ if __name__ == "__main__":
     observations = []
     throttle_values = []
     altitude_values = []
-    while not done and step_count < 10000:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
+    #env.render(mode='flightgear')
+    #time.sleep(20)
+    while not done:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
         #action[3] = 1.0
-        
+        #action[3] += 0.5
         obs, reward, done, info = env.step(action)
+        #env.render()
         #print(f"Reward: {reward}")
-        #print(action)
+        #print(action[3])
         #print(_states)
         unnormalize_obs = unnormalize_observation(obs)
         #print([round(val, 2) for val in unnormalize_obs])
@@ -209,6 +212,7 @@ if __name__ == "__main__":
     plt.title("PPO Observations Over Time (Angles in Degrees)")
     plt.legend()
     plt.grid(True)
+    plt.savefig("sensores.png")
     plt.show()
     
     altitude_array = np.array(altitude_values)
@@ -221,6 +225,7 @@ if __name__ == "__main__":
     plt.title("Altitude & ALtitude Deviation")
     plt.legend()
     plt.grid(True)
+    plt.savefig("altitude.png")
     plt.show()
     
     plt.figure(figsize=(12, 8))
@@ -231,4 +236,5 @@ if __name__ == "__main__":
     plt.title("Throttle")
     plt.legend()
     plt.grid(True)
+    plt.savefig("throttle.png")
     plt.show()
