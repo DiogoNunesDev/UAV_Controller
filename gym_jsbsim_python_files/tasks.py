@@ -471,29 +471,37 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
-    def setReward(self, crashed, altitude, heading_to_target, forward_vel, roll):
+    def setReward(self, crashed, altitude, heading_to_target, forward_vel, roll, pitch):
         """ Sets the reward"""
 
         u_vel_penalty = 0
         if forward_vel < 100:
             u_vel_penalty = - 100 / (forward_vel +1)
+        
+        pitch_penalty = 0
+        if abs(pitch) > math.pi / 4: #0.785 -> 45
+            pitch_penalty = -20
 
         roll_penalty = 0
-        if abs(roll) > math.pi / 4:
-            roll_penalty = -2
+        if abs(roll) > math.pi / 5: # min = 0.628 max = 1.57
+            roll_penalty = -20 * abs(roll) # 
             
         altitude_penalty = 0
         if altitude < 250:
-            altitude_deviation = abs(300 - altitude)
-            altitude_penalty = - (altitude_deviation/50)
+            altitude_deviation = abs(300 - altitude) # max = 200 min = 50
+            altitude_penalty = - (altitude_deviation/50) * 5 # varia entre -5 e -20
 
 
-        heading_reward = 15.7 - abs(heading_to_target) * 5
+        heading_reward = 15.7 # = 3.14 * 5
+        if abs(heading_to_target) > 0.0873: # 5 e 180 graus
+            heading_pen = abs(heading_to_target) * 5 # Varia entre 0.44 e 15.7
+            heading_reward -= heading_pen # Valor final varia entre 0 e 15.26
+
         crash_penalty = -1000 if crashed else 0
         #target_reward = (1 / (distance + 1)) * 1000
         
         #reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
-        reward = heading_reward + crash_penalty + altitude_penalty + u_vel_penalty + roll_penalty
+        reward = heading_reward + crash_penalty + altitude_penalty + u_vel_penalty + roll_penalty + pitch_penalty
         
         #print(f"Crash: {crashed}, Altitude Deviation: {altitude_deviation}, Heading Target: {heading_to_target}, U_Vel: {forward_vel}")
         #print(f"U_Vel: {u_vel_penalty}, Altitude_pen: {altitude_penalty}, Heading Reward: {heading_reward}, Total: {reward}")
@@ -501,6 +509,7 @@ class NavigationTask(FlightTask):
     
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple[NamedTuple, float, bool, Dict]:
         #print(action)
+        action[3] = max(0.5, action[3])
         for prop, command in zip(self.action_variables, action):
             sim[prop] = command
         for _ in range(sim_steps):
@@ -519,8 +528,8 @@ class NavigationTask(FlightTask):
         #print(f"Heading to target: {heading_to_target}")
         engine_bool = sim[prp.engine_running]
         #print(f"Engine: {engine_bool}")
-        reward = self.setReward(crashed, current_altitude, heading_to_target, unnormalized_observations[6], unnormalized_observations[0])
-        #print(f"Reward: {reward}")
+        reward = self.setReward(crashed, current_altitude, heading_to_target, unnormalized_observations[6], unnormalized_observations[0], unnormalized_observations[1])
+        print(f"Reward: {reward}")
         
         if distance_to_target < 20.0:
             reward = 1000
@@ -550,7 +559,7 @@ class NavigationTask(FlightTask):
             prp.throttle_cmd: 1,       
             prp.engine_ignition: 1,  # Ignition ON
             prp.engine_magnetos: 3,  # Set magnetos to BOTH (1 = Left, 2 = Right, 3 = Both)
-            prp.propeller_rpm: 2500, # Propeller running at cruise RPM
+            prp.propeller_rpm: 2200, # Propeller running at cruise RPM
             prp.engine_thrust_lbs: 250,  # Initial thrust
             prp.engine_cutoff: 0,
             prp.engine_starter: 1,
@@ -572,6 +581,11 @@ class NavigationTask(FlightTask):
             prp.initial_p_radps: 0,
             prp.initial_q_radps: 0,
             prp.initial_r_radps: 0,
+
+            prp.initial_sun_azimuth_deg: 180,
+            prp.initial_sun_elevation_deg: 60,
+            prp.initial_sun_intensity: 1.0,
+            prp.initial_time_of_day: 12,
         }
         return initial_conditions
 
