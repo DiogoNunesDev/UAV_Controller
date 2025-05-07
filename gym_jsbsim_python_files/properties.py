@@ -96,6 +96,25 @@ initial_r_radps = Property('ic/r-rad_sec', 'yaw rate [rad/s]')
 initial_roc_fpm = Property('ic/roc-fpm', 'initial rate of climb [ft/min]')
 initial_heading_deg = Property('ic/psi-true-deg', 'initial (true) heading [deg]')
 
+# --- Environmental Parameters ---
+initial_sun_azimuth_deg = Property('ic/sun-azimuth-deg', 'initial sun azimuth (degrees)')
+initial_sun_elevation_deg = Property('ic/sun-elevation-deg', 'initial sun elevation (degrees)')
+initial_sun_intensity = Property('ic/sun-intensity', 'initial sun intensity')
+
+# --- Weather and Atmosphere ---
+initial_atmospheric_pressure_hpa = Property('ic/atmospheric-pressure-hpa', 'initial atmospheric pressure [hPa]')
+initial_temperature_celsius = Property('ic/temperature-celsius', 'initial temperature [°C]')
+initial_wind_speed_knots = Property('ic/wind-speed-knots', 'initial wind speed [knots]')
+initial_wind_direction_deg = Property('ic/wind-direction-deg', 'initial wind direction [degrees]')
+
+# --- Day/Night Cycle ---
+initial_time_of_day = Property('ic/time-of-day', 'time of day in simulation [hh:mm:ss]')  # 24-hour format
+
+# --- Other Environmental Factors ---
+initial_cloud_cover = Property('ic/cloud-cover', 'initial cloud cover percentage [%]')
+initial_visibility_km = Property('ic/visibility-km', 'initial visibility distance [km]')
+
+
 
 class Vector2(object):
     def __init__(self, x: float, y: float):
