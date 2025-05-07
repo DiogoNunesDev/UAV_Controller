@@ -15,11 +15,11 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 STEP_FREQUENCY_HZ = 60
 EARTH_RADIUS = 6371000  
 CIRCLE_RADIUS = 4000     
-NUM_POINTS = 30         
+NUM_POINTS = 10         
 START_LAT = 37.619
 START_LON = -122.3750
 TOTAL_TIMESTEPS = 1000000000
-SAVE_INTERVAL = 25000000
+SAVE_INTERVAL = 10000000
 MODEL_PATH = ""#"../models/ppo_50M"  
 SAVE_PATH = "../models/ppo_navigation"
 

@@ -476,7 +476,8 @@ class NavigationTask(FlightTask):
 
         u_vel_penalty = 0
         if forward_vel < 100:
-            u_vel_penalty = - 100 / (forward_vel +1)
+            u_vel_penalty = - 100 / (forward_vel +1)    
+
         
         pitch_penalty = 0
         if abs(pitch) > math.pi / 4: #0.785 -> 45
@@ -489,20 +490,22 @@ class NavigationTask(FlightTask):
         altitude_penalty = 0
         if altitude < 250:
             altitude_deviation = abs(300 - altitude) # max = 200 min = 50
-            altitude_penalty = - (altitude_deviation/50) * 5 # varia entre -5 e -20
-
+            altitude_penalty = - (altitude_deviation/50) * 20 # varia entre -20 e -80
 
         heading_reward = 15.7 # = 3.14 * 5
         if abs(heading_to_target) > 0.0873: # 5 e 180 graus
             heading_pen = abs(heading_to_target) * 5 # Varia entre 0.44 e 15.7
             heading_reward -= heading_pen # Valor final varia entre 0 e 15.26
 
+        elif abs(heading_to_target) > 0.0174533:
+            heading_reward += 10
+
         crash_penalty = -1000 if crashed else 0
         #target_reward = (1 / (distance + 1)) * 1000
         
         #reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
         reward = heading_reward + crash_penalty + altitude_penalty + u_vel_penalty + roll_penalty + pitch_penalty
-        
+        #print(f'Reward: {reward}')
         #print(f"Crash: {crashed}, Altitude Deviation: {altitude_deviation}, Heading Target: {heading_to_target}, U_Vel: {forward_vel}")
         #print(f"U_Vel: {u_vel_penalty}, Altitude_pen: {altitude_penalty}, Heading Reward: {heading_reward}, Total: {reward}")
         return reward
@@ -529,7 +532,7 @@ class NavigationTask(FlightTask):
         engine_bool = sim[prp.engine_running]
         #print(f"Engine: {engine_bool}")
         reward = self.setReward(crashed, current_altitude, heading_to_target, unnormalized_observations[6], unnormalized_observations[0], unnormalized_observations[1])
-        print(f"Reward: {reward}")
+        #print(f"Reward: {reward}")
         
         if distance_to_target < 20.0:
             reward = 1000
@@ -826,6 +829,6 @@ class NavigationTask(FlightTask):
         Randomly selects a target point from a generated circle of points.
         """
         CIRCLE_RADIUS = random.randint(4000, 4500)
-        target_points = self.create_target_points(initial_lat, initial_lon, CIRCLE_RADIUS, 30)
+        target_points = self.create_target_points(initial_lat, initial_lon, CIRCLE_RADIUS, 10)
         self.target_point = random.choice(target_points)
         self.target_lat, self.target_lon = self.target_point
