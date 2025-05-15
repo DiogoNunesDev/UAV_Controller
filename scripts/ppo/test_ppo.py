@@ -35,6 +35,7 @@ lows = np.array([
     -2 * math.pi, 
     -2 * math.pi,
     -2 * math.pi,
+    #0.0
 ], dtype=np.float32)
 
 highs = np.array([
@@ -51,6 +52,7 @@ highs = np.array([
     2 * math.pi,
     2 * math.pi,
     2 * math.pi,
+    #1.0
 ], dtype=np.float32)
 
 
@@ -135,7 +137,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_6399744_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_209999916_steps.zip")
     
     obs = env.reset()
     log = []
@@ -151,6 +153,7 @@ if __name__ == "__main__":
     #time.sleep(20)
     while not done:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
+        print(f'Action: {action}')
         #action[3] = 1.0
         #action[3] += 0.5
         obs, reward, done, info = env.step(action)
@@ -187,6 +190,7 @@ if __name__ == "__main__":
         "Altitude Deviation (m)", #"Distance to Target (m)",
         "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)", 
         "Velocity X-Axis", "Altitude_change", "Pitch Rate [deg/s]", "Yaw Rate [deg/s]", "Roll Rate [deg/s]",
+        
     ]
     
     df_obs = pd.DataFrame(observations, columns=obs_labels)
