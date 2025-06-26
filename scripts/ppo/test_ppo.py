@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from gym import spaces
 import time
 
-STEP_FREQUENCY_HZ = 60  # Frequency at which actions are sent
+STEP_FREQUENCY_HZ = 100  # Frequency at which actions are sent
 EPISODE_TIME_S = 240  # Total episode duration in seconds
 EARTH_RADIUS = 6371000  # Earth radius in meters
 CIRCLE_RADIUS = 4500     # Circle radius in meters
@@ -22,35 +22,29 @@ START_LON = -122.3750
 
 #STATE SPACE
 lows = np.array([
-    -np.pi,   # Roll
-    -np.pi/2, # Pitch
-    -np.pi,   # Yaw (normalized to -π to π)
-    #0.0,      # Throttle (0 to 1)
-    -205,      # Altitude Deviation (meters)
-    #0.0,      # Distance (meters)
-    -np.pi,     # Yaw angle (degrees)
-    -np.pi/2,       # Pitch angle (degrees)
-    -2200,
-    -250,
-    -2 * math.pi, 
-    -2 * math.pi,
-    -2 * math.pi,
+    -np.pi,         # Roll
+    -np.pi/2,       # Pitch
+    -205,           # Altitude Deviation (meters)
+    -250,           # Forward Velocity
+    -250,           # Altitude Rate
+    -2 * math.pi,   # P 
+    -2 * math.pi,   # Q
+    -2 * math.pi,   # R
+    -250,           # Vertical Velocity
+    -np.pi          # Yaw Angle to Target
 ], dtype=np.float32)
 
 highs = np.array([
-    np.pi,    # Roll
-    np.pi/2,  # Pitch
-    np.pi,    # Yaw
-    #1.0,      # Throttle
-    305,     # Altitude Deviation(meters)
-    #10000,     # Distance
-    np.pi,      # Yaw angle
-    np.pi/2,        # Pitch angle
-    2200,
-    250,
-    2 * math.pi,
-    2 * math.pi,
-    2 * math.pi,
+    np.pi,          # Roll
+    np.pi/2,        # Pitch
+    305,            # Altitude Deviation (meters)
+    300,            # Forward Velocity
+    250,            # Altitude Rate
+    2 * math.pi,    # P
+    2 * math.pi,    # Q
+    2 * math.pi,    # R
+    250,             # Vertical Velocity
+    np.pi          # Yaw Angle to Target
 ], dtype=np.float32)
 
 
@@ -135,7 +129,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_6399744_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_199000000_steps.zip")
     
     obs = env.reset()
     log = []
@@ -147,13 +141,16 @@ if __name__ == "__main__":
     observations = []
     throttle_values = []
     altitude_values = []
+    rewards = []
     #env.render(mode='flightgear')
     #time.sleep(20)
     while not done:#EPISODE_TIME_S * STEP_FREQUENCY_HZ:
         action, _states = model.predict(obs, deterministic=True)
+        print(f'Action: {action}')
         #action[3] = 1.0
         #action[3] += 0.5
         obs, reward, done, info = env.step(action)
+        rewards.append(reward)
         #env.render()
         #print(f"Reward: {reward}")
         #print(action[3])
@@ -161,7 +158,7 @@ if __name__ == "__main__":
         unnormalize_obs = unnormalize_observation(obs)
         #print([round(val, 2) for val in unnormalize_obs])
         #print("")
-        print(f"Engine: {env.sim[prp.engine_running]}")
+        #print(f"Engine: {env.sim[prp.engine_running]}")
         observations.append(list(unnormalize_obs))
         step_count += 1
         current_lat = env.sim[prp.lat_geod_deg]
@@ -171,9 +168,11 @@ if __name__ == "__main__":
         throttle = env.sim[prp.throttle_cmd]
         throttle_values.append(throttle)
         #print(f"Predicted Throttle: {action[3]}")
-        print(f"Throttle: {throttle}")
+        #print(f"Throttle: {throttle}")
+        #print(f'Pitch: {math.degrees(unnormalize_obs[1])} | Pitch to target: {math.degrees(unnormalize_obs[4])}')
         #observations.append(throttle)
-        heading = unnormalize_obs[2]
+        #heading = unnormalize_obs[2]
+        heading = math.radians(env.sim[prp.heading_deg])
         roll = unnormalize_obs[0]
         pitch = unnormalize_obs[1]
         if step_count % 10 == 0:
@@ -183,19 +182,19 @@ if __name__ == "__main__":
     gc.collect()
     
     obs_labels = [
-        "Roll (deg)", "Pitch (deg)", "Yaw (deg)", #"Throttle",
+        "Roll (deg)", "Pitch (deg)", #"Yaw (deg)", #"Throttle",
         "Altitude Deviation (m)", #"Distance to Target (m)",
-        "Yaw Angle to Target (deg)", "Pitch Angle to Target (deg)", 
-        "Velocity X-Axis", "Altitude_change", "Pitch Rate [deg/s]", "Yaw Rate [deg/s]", "Roll Rate [deg/s]",
+        #"Pitch Angle to Target (deg)", 
+        "Velocity X-Axis", "Altitude_change", "Pitch Rate [deg/s]", "Yaw Rate [deg/s]", "Roll Rate [deg/s]", "Velocity Y-Axis", "Yaw Angle to Target (deg)",
     ]
     
     df_obs = pd.DataFrame(observations, columns=obs_labels)
     #df_obs["Throttle"] = df_obs["Throttle"] * 100
     df_obs["Roll (deg)"] = np.degrees(df_obs["Roll (deg)"])
     df_obs["Pitch (deg)"] = np.degrees(df_obs["Pitch (deg)"])
-    df_obs["Yaw (deg)"] = np.degrees(df_obs["Yaw (deg)"])
+    #df_obs["Yaw (deg)"] = np.degrees(df_obs["Yaw (deg)"])
     df_obs["Yaw Angle to Target (deg)"] = np.degrees(df_obs["Yaw Angle to Target (deg)"])
-    df_obs["Pitch Angle to Target (deg)"] = np.degrees(df_obs["Pitch Angle to Target (deg)"])
+    #df_obs["Pitch Angle to Target (deg)"] = np.degrees(df_obs["Pitch Angle to Target (deg)"])
     df_obs["Pitch Rate [deg/s]"] = np.degrees(df_obs["Pitch Rate [deg/s]"])
     df_obs["Yaw Rate [deg/s]"] = np.degrees(df_obs["Yaw Rate [deg/s]"])
     df_obs["Roll Rate [deg/s]"] = np.degrees(df_obs["Roll Rate [deg/s]"])
@@ -226,6 +225,17 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid(True)
     plt.savefig("altitude.png")
+    plt.show()
+
+    plt.figure(figsize=(12, 8))
+    plt.plot(np.array(rewards), label="Reward")
+    
+    plt.xlabel("Timestep")
+    plt.ylabel("Value")
+    plt.title("reward")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("reward.png")
     plt.show()
     
     plt.figure(figsize=(12, 8))

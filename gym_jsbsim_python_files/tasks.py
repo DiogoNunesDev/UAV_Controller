@@ -439,6 +439,7 @@ class NavigationTask(FlightTask):
         self.target_point = target_point
         self.cumulative_altitude_dist = 0
         self.n_steps = 0
+        self.distance_to_target = 4000
         
         self.state_variables = (
             prp.roll_rad,             # Roll angle in radians
@@ -471,48 +472,81 @@ class NavigationTask(FlightTask):
         super().__init__(assessor)
         #self.reset_target_point(37.6190, -122.3750)
 
-    def setReward(self, crashed, altitude, heading_to_target, forward_vel, roll, pitch):
+    def setReward(self, crashed, altitude, heading_to_target, forward_vel, roll, pitch, p, q, vertical_vel):
         """ Sets the reward"""
-
-        u_vel_penalty = 0
-        if forward_vel < 100:
-            u_vel_penalty = - 100 / (forward_vel +1)    
-
         
+        u_vel_reward = 0
+        if forward_vel < 130 or forward_vel > 205:
+            u_vel_reward = -10
+        #if forward_vel >= 150 and forward_vel < 200:
+            #u_vel_reward = 10
+        
+
         pitch_penalty = 0
-        if abs(pitch) > math.pi / 4: #0.785 -> 45
-            pitch_penalty = -20
+        if abs(pitch) > math.pi / 6: #0.785 -> 45
+            pitch_penalty = -20 * abs(pitch) # min = 15.7, max = 31.4
+            pitch_penalty = max(pitch_penalty, -20)
+
 
         roll_penalty = 0
         if abs(roll) > math.pi / 5: # min = 0.628 max = 1.57
-            roll_penalty = -20 * abs(roll) # 
-            
-        altitude_penalty = 0
-        if altitude < 250:
-            altitude_deviation = abs(300 - altitude) # max = 200 min = 50
-            altitude_penalty = - (altitude_deviation/50) * 20 # varia entre -20 e -80
+            roll_penalty = -20 * abs(roll) # min = 12.6, max = 62.8
+            roll_penalty = max(roll_penalty, -20)
 
-        heading_reward = 15.7 # = 3.14 * 5
-        if abs(heading_to_target) > 0.0873: # 5 e 180 graus
-            heading_pen = abs(heading_to_target) * 5 # Varia entre 0.44 e 15.7
-            heading_reward -= heading_pen # Valor final varia entre 0 e 15.26
+ 
+        altitude_reward = 0
+        y_vel_penalty = 0
+        if altitude < 270 or altitude > 330:
+            deviation = abs(altitude - 300)
+            altitude_reward = - deviation
 
-        elif abs(heading_to_target) > 0.0174533:
-            heading_reward += 10
-
-        crash_penalty = -1000 if crashed else 0
-        #target_reward = (1 / (distance + 1)) * 1000
+            if vertical_vel > 0 and altitude < 270:
+                y_vel_penalty = -(deviation * vertical_vel) / 100
         
-        #reward = 0.7 * target_reward + 0.3 * altitude_penalty + crash_penalty + heading_reward
-        reward = heading_reward + crash_penalty + altitude_penalty + u_vel_penalty + roll_penalty + pitch_penalty
+        elif 290 < altitude < 310:
+            altitude_reward = 30
+
+
+        heading_reward = 0  #15.7 # = 3.14 * 5
+        if abs(heading_to_target) <= 0.0873 and abs(heading_to_target) > 0.0174533: # ]1;5] graus
+            heading_reward = (6 - math.degrees(heading_to_target)) * 2
+            heading_reward = max(0, heading_reward)
+
+        elif abs(heading_to_target) <= 0.0174533:
+            heading_reward = 20
+
+        rate_penalty = 0
+        if abs(p) > math.pi / 8 or abs(q) > math.pi / 8: #Pitch and roll rates
+            rate_penalty = -10
+
+        """
+        distance_reward = 0
+        if previous_distance > current_distance:
+            distance_reward = 1
+
+            if current_distance <= 250:
+                distance_reward = 6
+            elif current_distance <= 500:
+                distance_reward = 5
+            elif current_distance <= 1000:
+                distance_reward = 4
+            elif current_distance <= 2000:
+                distance_reward = 3
+            elif current_distance <= 3000:
+                distance_reward = 2
+        """
+
+        
+        crash_penalty = -100 if crashed else 0
+        
+        reward = heading_reward + crash_penalty + altitude_reward + u_vel_reward + roll_penalty + pitch_penalty + rate_penalty + y_vel_penalty
+        #reward = altitude_reward
         #print(f'Reward: {reward}')
-        #print(f"Crash: {crashed}, Altitude Deviation: {altitude_deviation}, Heading Target: {heading_to_target}, U_Vel: {forward_vel}")
-        #print(f"U_Vel: {u_vel_penalty}, Altitude_pen: {altitude_penalty}, Heading Reward: {heading_reward}, Total: {reward}")
         return reward
     
     def task_step(self, sim: Simulation, action: Sequence[float], sim_steps: int) -> Tuple[NamedTuple, float, bool, Dict]:
         #print(action)
-        action[3] = max(0.5, action[3])
+        #action[3] = max(0.5, action[3])
         for prop, command in zip(self.action_variables, action):
             sim[prop] = command
         for _ in range(sim_steps):
@@ -522,20 +556,15 @@ class NavigationTask(FlightTask):
         observation = self.observe_first_state(sim)
         self.n_steps += 1
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048
-        #altitude_deviation = abs(300 - current_altitude)
         crashed = current_altitude <= 100
         unnormalized_observations = self.unnormalize_observation(observation)
-        #distance_to_target = unnormalized_observations[5]
         distance_to_target = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
-        heading_to_target = unnormalized_observations[4]
-        #print(f"Heading to target: {heading_to_target}")
-        engine_bool = sim[prp.engine_running]
-        #print(f"Engine: {engine_bool}")
-        reward = self.setReward(crashed, current_altitude, heading_to_target, unnormalized_observations[6], unnormalized_observations[0], unnormalized_observations[1])
+
+        reward = self.setReward(crashed, current_altitude, unnormalized_observations[9], unnormalized_observations[3], unnormalized_observations[0], unnormalized_observations[1], unnormalized_observations[5], unnormalized_observations[6], unnormalized_observations[8])
         #print(f"Reward: {reward}")
-        
+        self.distance_to_target = distance_to_target
         if distance_to_target < 20.0:
-            reward = 1000
+            reward = 250
             self.reset_target_point(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
             #print("Reached the Target Point")
         
@@ -585,10 +614,6 @@ class NavigationTask(FlightTask):
             prp.initial_q_radps: 0,
             prp.initial_r_radps: 0,
 
-            prp.initial_sun_azimuth_deg: 180,
-            prp.initial_sun_elevation_deg: 60,
-            prp.initial_sun_intensity: 1.0,
-            prp.initial_time_of_day: 12,
         }
         return initial_conditions
 
@@ -602,14 +627,15 @@ class NavigationTask(FlightTask):
         current_yaw = math.radians(sim[prp.heading_deg])  # Yaw converted to radians
         current_yaw = self.normalize_yaw(current_yaw)  # Normalized to [-π, π]
         
-        throttle = sim[prp.throttle_cmd] # [0, 1]
+        #throttle = sim[prp.throttle_cmd] # [0, 1]
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048  # Altitude (AGL) from feet to meters
         altitude_deviation = current_altitude - self.target_alt
          
-        distance = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
+        #distance = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
         yaw_angle_to_target = self.calculate_yaw_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_yaw)
-        pitch_angle_to_target = self.calculate_pitch_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_altitude)
+        #pitch_angle_to_target = self.calculate_pitch_angle(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg], current_altitude)
         
+        y_vel = sim[prp.v_down_fps]
         u_vel = sim[prp.u_fps]
         altitude_rate = sim[prp.altitude_rate_fps] 
         p_rad = sim[prp.p_radps]
@@ -619,18 +645,14 @@ class NavigationTask(FlightTask):
         observation = np.array([
             current_roll,
             current_pitch,
-            current_yaw,
-            #throttle,
-            #current_altitude,
             altitude_deviation, 
-            #distance,
-            yaw_angle_to_target,
-            pitch_angle_to_target,
             u_vel,
             altitude_rate,
             p_rad,
             q_rad,
-            r_rad,
+            r_rad,        
+            y_vel,
+            yaw_angle_to_target
         ], dtype=np.float32)
         
         for i, (low, high) in enumerate(zip(self.get_state_space().low, self.get_state_space().high)):
@@ -685,35 +707,29 @@ class NavigationTask(FlightTask):
 
     def get_state_space(self):
         lows = np.array([
-            -np.pi,   # Roll
-            -np.pi/2, # Pitch
-            -np.pi,   # Yaw (normalized to -π to π)
-            #0.0,      # Throttle (0 to 1)
-            -205,      # Altitude Deviation (meters)
-            #0.0,      # Distance (meters)
-            -np.pi,     # Yaw angle (degrees)
-            -np.pi/2,       # Pitch angle (degrees)
-            -2200,
-            -250,
-            -2 * math.pi, 
-            -2 * math.pi,
-            -2 * math.pi,
+            -np.pi,         # Roll
+            -np.pi/2,       # Pitch
+            -205,           # Altitude Deviation (meters)
+            -250,           # Forward Velocity
+            -250,           # Altitude Rate
+            -2 * math.pi,   # P 
+            -2 * math.pi,   # Q
+            -2 * math.pi,   # R
+            -250,           # Vertical Velocity
+            -np.pi          # Yaw Angle to Target
         ], dtype=np.float32)
 
         highs = np.array([
-            np.pi,    # Roll
-            np.pi/2,  # Pitch
-            np.pi,    # Yaw
-            #1.0,      # Throttle
-            305,     # Altitude Deviation (meters)
-            #10000,     # Distance
-            np.pi,      # Yaw angle
-            np.pi/2,        # Pitch angle
-            2200,
-            250,
-            2 * math.pi,
-            2 * math.pi,
-            2 * math.pi,
+            np.pi,          # Roll
+            np.pi/2,        # Pitch
+            305,            # Altitude Deviation (meters)
+            300,            # Forward Velocity
+            250,            # Altitude Rate
+            2 * math.pi,    # P
+            2 * math.pi,    # Q
+            2 * math.pi,    # R
+            250,            # Vertical Velocity
+            np.pi           # Yaw Angle to Target
         ], dtype=np.float32)
         return spaces.Box(low=lows, high=highs, dtype=np.float32)
 
@@ -788,6 +804,10 @@ class NavigationTask(FlightTask):
     def calculate_pitch_angle(self, lat1: float, lon1: float, alt1: float) -> float:
         alt2 = self.target_alt
         distance_horizontal = self.calculate_distance(lat1, lon1)
+
+        print(f"[DEBUG] lat1: {lat1}, lon1: {lon1}, alt1: {alt1}")
+        print(f"[DEBUG] target_alt (alt2): {alt2}")
+        print(f"[DEBUG] horizontal distance: {distance_horizontal}")
         return math.atan2(alt2 - alt1, distance_horizontal)
 
 

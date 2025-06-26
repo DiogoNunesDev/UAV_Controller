@@ -12,18 +12,18 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
 
 # Constants
-STEP_FREQUENCY_HZ = 60
+STEP_FREQUENCY_HZ = 100
 EARTH_RADIUS = 6371000  
 CIRCLE_RADIUS = 4000     
 NUM_POINTS = 10         
 START_LAT = 37.619
 START_LON = -122.3750
 TOTAL_TIMESTEPS = 1000000000
-SAVE_INTERVAL = 10000000
+SAVE_INTERVAL = 1000000
 MODEL_PATH = ""#"../models/ppo_50M"  
 SAVE_PATH = "../models/ppo_navigation"
 
-NUM_CPU = 12
+NUM_CPU = 16
 
 def calculate_circle_point(lat, lon, radius, angle):
     """Calculates a point on a circle given the center and radius."""
@@ -81,8 +81,9 @@ if __name__ == "__main__":
         model = PPO(
             "MlpPolicy",
             vec_env,
+            policy_kwargs = dict(net_arch=[dict(pi=[512, 256], vf=[128, 64])]),
             learning_rate=3e-4,
-            n_steps=4096,
+            n_steps=4096*2,
             batch_size=128,
             gae_lambda=0.95,
             gamma=0.99,
