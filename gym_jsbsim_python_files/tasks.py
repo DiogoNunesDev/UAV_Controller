@@ -551,8 +551,7 @@ class NavigationTask(FlightTask):
             sim[prop] = command
         for _ in range(sim_steps):
             sim.run()
-
-        
+      
         observation = self.observe_first_state(sim)
         self.n_steps += 1
         current_altitude = sim[prp.altitude_agl_ft] * 0.3048
@@ -560,7 +559,7 @@ class NavigationTask(FlightTask):
         unnormalized_observations = self.unnormalize_observation(observation)
         distance_to_target = self.calculate_distance(sim[prp.lat_geod_deg], sim[prp.lng_geoc_deg])
 
-        reward = self.setReward(crashed, current_altitude, unnormalized_observations[9], unnormalized_observations[3], unnormalized_observations[0], unnormalized_observations[1], unnormalized_observations[5], unnormalized_observations[6], unnormalized_observations[8])
+        reward = self.setReward(crashed, current_altitude, unnormalized_observations[8], unnormalized_observations[3], unnormalized_observations[0], unnormalized_observations[1], unnormalized_observations[4], unnormalized_observations[5], unnormalized_observations[7])
         #print(f"Reward: {reward}")
         self.distance_to_target = distance_to_target
         if distance_to_target < 20.0:
@@ -637,22 +636,27 @@ class NavigationTask(FlightTask):
         
         y_vel = sim[prp.v_down_fps]
         u_vel = sim[prp.u_fps]
-        altitude_rate = sim[prp.altitude_rate_fps] 
+        #altitude_rate = sim[prp.altitude_rate_fps] 
         p_rad = sim[prp.p_radps]
         q_rad = sim[prp.q_radps]
         r_rad = sim[prp.r_radps]
+        error_u_vel = 0
+        if u_vel < 150:
+            error_u_vel = u_vel - 150
+        if u_vel > 190:
+            error_u_vel = u_vel - 190
         
         observation = np.array([
             current_roll,
             current_pitch,
             altitude_deviation, 
             u_vel,
-            altitude_rate,
             p_rad,
             q_rad,
             r_rad,        
             y_vel,
-            yaw_angle_to_target
+            yaw_angle_to_target,
+            error_u_vel,
         ], dtype=np.float32)
         
         for i, (low, high) in enumerate(zip(self.get_state_space().low, self.get_state_space().high)):
@@ -711,12 +715,12 @@ class NavigationTask(FlightTask):
             -np.pi/2,       # Pitch
             -205,           # Altitude Deviation (meters)
             -250,           # Forward Velocity
-            -250,           # Altitude Rate
             -2 * math.pi,   # P 
             -2 * math.pi,   # Q
             -2 * math.pi,   # R
             -250,           # Vertical Velocity
-            -np.pi          # Yaw Angle to Target
+            -np.pi,          # Yaw Angle to Target
+            -150,
         ], dtype=np.float32)
 
         highs = np.array([
@@ -724,12 +728,12 @@ class NavigationTask(FlightTask):
             np.pi/2,        # Pitch
             305,            # Altitude Deviation (meters)
             300,            # Forward Velocity
-            250,            # Altitude Rate
             2 * math.pi,    # P
             2 * math.pi,    # Q
             2 * math.pi,    # R
             250,            # Vertical Velocity
-            np.pi           # Yaw Angle to Target
+            np.pi,           # Yaw Angle to Target
+            150,
         ], dtype=np.float32)
         return spaces.Box(low=lows, high=highs, dtype=np.float32)
 

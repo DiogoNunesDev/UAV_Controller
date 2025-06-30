@@ -26,7 +26,6 @@ lows = np.array([
     -np.pi/2,       # Pitch
     -205,           # Altitude Deviation (meters)
     -250,           # Forward Velocity
-    -250,           # Altitude Rate
     -2 * math.pi,   # P 
     -2 * math.pi,   # Q
     -2 * math.pi,   # R
@@ -39,12 +38,11 @@ highs = np.array([
     np.pi/2,        # Pitch
     305,            # Altitude Deviation (meters)
     300,            # Forward Velocity
-    250,            # Altitude Rate
     2 * math.pi,    # P
     2 * math.pi,    # Q
     2 * math.pi,    # R
-    250,             # Vertical Velocity
-    np.pi          # Yaw Angle to Target
+    250,            # Vertical Velocity
+    np.pi           # Yaw Angle to Target
 ], dtype=np.float32)
 
 
@@ -129,7 +127,7 @@ if __name__ == "__main__":
     print(f"Testing on Target Point: {target_point}")
 
     env = create_env(target_point)
-    model = PPO.load("../models/ppo_navigation/ppo_navigation_199000000_steps.zip")
+    model = PPO.load("../models/ppo_navigation/ppo_navigation_76000000_steps.zip")
     
     obs = env.reset()
     log = []
@@ -185,7 +183,7 @@ if __name__ == "__main__":
         "Roll (deg)", "Pitch (deg)", #"Yaw (deg)", #"Throttle",
         "Altitude Deviation (m)", #"Distance to Target (m)",
         #"Pitch Angle to Target (deg)", 
-        "Velocity X-Axis", "Altitude_change", "Pitch Rate [deg/s]", "Yaw Rate [deg/s]", "Roll Rate [deg/s]", "Velocity Y-Axis", "Yaw Angle to Target (deg)",
+        "Velocity X-Axis", "Pitch Rate [deg/s]", "Yaw Rate [deg/s]", "Roll Rate [deg/s]", "Velocity Y-Axis", "Yaw Angle to Target (deg)",
     ]
     
     df_obs = pd.DataFrame(observations, columns=obs_labels)
